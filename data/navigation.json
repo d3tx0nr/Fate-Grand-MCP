@@ -1,0 +1,353 @@
+{
+ "region": "NA",
+ "surveyed": "2026-11-15",
+ "about": "Fixed places of the Terminal. parent: where back() goes once the place is in its list (a story chapter is moved there after it is cleared; the chapter being played is on the Terminal home). banner: words of the banner that opens it. at: where the banner is in the list (0 top, 1 bottom). titles: words in the place's own title. story: order in the main story. requires: story index that has to be reached before the place shows up (main interludes, approximate).",
+ "places": {
+  "Terminal": {
+   "banner": "Terminal",
+   "kind": "home",
+   "titles": [
+    "Terminal"
+   ],
+   "note": "The top of the Terminal starts with news, summon and event banners (they change). A newer account lists only the chapters it has unlocked."
+  },
+  "Chaldea Gate": {
+   "parent": "Terminal",
+   "banner": "Chaldea Gate",
+   "at": 0.01,
+   "kind": "list",
+   "titles": [
+    "Chaldea Gate"
+   ]
+  },
+  "Daily Quests": {
+   "parent": "Chaldea Gate",
+   "banner": "Daily Quests",
+   "at": 0.66,
+   "kind": "list",
+   "titles": [
+    "Daily Quest"
+   ],
+   "holds": "Ember Gathering (class pair of the day; every pair during campaigns), Training Ground (skill gems), Enter the Treasure Vault (QP); Novice to Extreme (AP 5-20)"
+  },
+  "Interlude": {
+   "parent": "Chaldea Gate",
+   "banner": "Interlude",
+   "at": 0.66,
+   "kind": "list",
+   "titles": [
+    "Interlude"
+   ],
+   "holds": "servant interlude quests"
+  },
+  "Rank Up Quest": {
+   "parent": "Chaldea Gate",
+   "banner": "Rank Up Quest",
+   "at": 0.66,
+   "kind": "list",
+   "titles": [
+    "Rank Up Quest"
+   ],
+   "holds": "skill and NP rank-up quests"
+  },
+  "Advanced Quest": {
+   "parent": "Chaldea Gate",
+   "banner": "Advanced Quest",
+   "at": 1.0,
+   "kind": "list",
+   "titles": [
+    "Advanced Quest"
+   ],
+   "holds": "hard quests with a fixed party (no support)"
+  },
+  "Ordeal Call": {
+   "parent": "Terminal",
+   "banner": "Ordeal Call",
+   "at": 0.14,
+   "kind": "map",
+   "titles": [
+    "Ordeal Call"
+   ],
+   "story": 20
+  },
+  "Nahui Mictlan": {
+   "parent": "Terminal",
+   "banner": "Nahui Mictlan",
+   "at": 0.14,
+   "kind": "map",
+   "titles": [
+    "Nahui Mictlan",
+    "Lostbelt No.7"
+   ],
+   "story": 19
+  },
+  "Avalon le Fae": {
+   "parent": "Terminal",
+   "banner": "Avalon le Fae",
+   "at": 0.35,
+   "kind": "map",
+   "titles": [
+    "Avalon le Fae",
+    "Lostbelt No.6"
+   ],
+   "story": 18
+  },
+  "Olympus": {
+   "parent": "Terminal",
+   "banner": "Lostbelt No.5",
+   "at": 0.35,
+   "kind": "map",
+   "titles": [
+    "Olympus",
+    "Atlantis",
+    "Lostbelt No.5"
+   ],
+   "story": 17
+  },
+  "Yugakshetra": {
+   "parent": "Terminal",
+   "banner": "Yugakshetra",
+   "at": 0.39,
+   "kind": "map",
+   "titles": [
+    "Yugakshetra",
+    "Lostbelt No.4"
+   ],
+   "story": 16
+  },
+  "SIN": {
+   "parent": "Terminal",
+   "banner": "SIN",
+   "at": 0.39,
+   "kind": "map",
+   "titles": [
+    "SIN",
+    "Lostbelt No.3"
+   ],
+   "story": 15
+  },
+  "Gotterdammerung": {
+   "parent": "Terminal",
+   "banner": "Gotterdammerung",
+   "at": 0.39,
+   "kind": "map",
+   "titles": [
+    "Gotterdammerung",
+    "G\u00f6tterd\u00e4mmerung",
+    "Lostbelt No.2"
+   ],
+   "story": 14
+  },
+  "Anastasia": {
+   "parent": "Terminal",
+   "banner": "Anastasia",
+   "at": 0.51,
+   "kind": "map",
+   "titles": [
+    "Anastasia",
+    "Lostbelt No.1"
+   ],
+   "story": 13
+  },
+  "Main Record 1.5": {
+   "parent": "Terminal",
+   "banner": "Main Record 1.5",
+   "at": 0.64,
+   "kind": "list",
+   "titles": [
+    "Main Record"
+   ]
+  },
+  "Main Record 1": {
+   "parent": "Terminal",
+   "banner": "Main Record 1",
+   "at": 0.64,
+   "kind": "list",
+   "titles": [
+    "Main Record"
+   ]
+  },
+  "Main Interlude": {
+   "parent": "Terminal",
+   "banner": "Main Interlude",
+   "at": 1.0,
+   "kind": "list",
+   "titles": [
+    "Main Interlude"
+   ],
+   "requires": 9
+  },
+  "Solomon": {
+   "parent": "Main Record 1",
+   "banner": "Solomon",
+   "at": 0.01,
+   "kind": "map",
+   "titles": [
+    "Solomon"
+   ],
+   "story": 8
+  },
+  "Babylonia": {
+   "parent": "Main Record 1",
+   "banner": "Babylonia",
+   "at": 0.01,
+   "kind": "map",
+   "titles": [
+    "Babylonia"
+   ],
+   "story": 7
+  },
+  "Camelot": {
+   "parent": "Main Record 1",
+   "banner": "Camelot",
+   "at": 0.01,
+   "kind": "map",
+   "titles": [
+    "Camelot"
+   ],
+   "story": 6
+  },
+  "E Pluribus Unum": {
+   "parent": "Main Record 1",
+   "banner": "E Pluribus Unum",
+   "at": 0.35,
+   "kind": "map",
+   "titles": [
+    "E Pluribus Unum"
+   ],
+   "story": 5
+  },
+  "London": {
+   "parent": "Main Record 1",
+   "banner": "London",
+   "at": 0.35,
+   "kind": "map",
+   "titles": [
+    "London"
+   ],
+   "story": 4
+  },
+  "Okeanos": {
+   "parent": "Main Record 1",
+   "banner": "Okeanos",
+   "at": 0.38,
+   "kind": "map",
+   "titles": [
+    "Okeanos"
+   ],
+   "story": 3
+  },
+  "Septem": {
+   "parent": "Main Record 1",
+   "banner": "Septem",
+   "at": 0.38,
+   "kind": "map",
+   "titles": [
+    "Septem"
+   ],
+   "story": 2
+  },
+  "Orleans": {
+   "parent": "Main Record 1",
+   "banner": "Orleans",
+   "at": 0.38,
+   "kind": "map",
+   "titles": [
+    "Orleans"
+   ],
+   "story": 1
+  },
+  "Fuyuki": {
+   "parent": "Main Record 1",
+   "banner": "Fuyuki",
+   "at": 1.0,
+   "kind": "map",
+   "titles": [
+    "Fuyuki",
+    "Singularity F"
+   ],
+   "story": 0
+  },
+  "Shinjuku": {
+   "parent": "Main Record 1.5",
+   "banner": "Shinjuku",
+   "kind": "map",
+   "titles": [
+    "Shinjuku"
+   ],
+   "story": 9
+  },
+  "Agartha": {
+   "parent": "Main Record 1.5",
+   "banner": "Agartha",
+   "kind": "map",
+   "titles": [
+    "Agartha"
+   ],
+   "story": 10
+  },
+  "Shimousa": {
+   "parent": "Main Record 1.5",
+   "banner": "Shimousa",
+   "kind": "map",
+   "titles": [
+    "Shimousa"
+   ],
+   "story": 11
+  },
+  "Salem": {
+   "parent": "Main Record 1.5",
+   "banner": "Salem",
+   "kind": "map",
+   "titles": [
+    "Salem"
+   ],
+   "story": 12
+  },
+  "Tunguska Sanctuary": {
+   "parent": "Main Interlude",
+   "banner": "Tunguska Sanctuary",
+   "kind": "map",
+   "titles": [
+    "Tunguska Sanctuary"
+   ],
+   "requires": 19
+  },
+  "Heian-kyo": {
+   "parent": "Main Interlude",
+   "banner": "Heian-kyo",
+   "kind": "map",
+   "titles": [
+    "Heian-kyo"
+   ],
+   "requires": 18
+  },
+  "Imaginary Scramble": {
+   "parent": "Main Interlude",
+   "banner": "Imaginary Scramble",
+   "kind": "map",
+   "titles": [
+    "Imaginary Scramble"
+   ],
+   "requires": 17
+  },
+  "SE.RA.PH": {
+   "parent": "Main Interlude",
+   "banner": "SE.RA.PH",
+   "kind": "map",
+   "titles": [
+    "SE.RA.PH"
+   ],
+   "requires": 9
+  },
+  "Merry Christmas Underworld": {
+   "parent": "Main Interlude",
+   "banner": "Merry Christmas Underworld",
+   "kind": "map",
+   "titles": [
+    "Merry Christmas Underworld"
+   ],
+   "requires": 19
+  }
+ }
+}
