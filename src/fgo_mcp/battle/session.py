@@ -23,14 +23,14 @@ def enemy_key(slot: int) -> tuple:
 
 class BattleSession:
     # saved to disk so a restart in the middle of a battle doesnt lose everything
-    STATE_KEYS = ("party", "faces", "skill_images", "book", "wave", "target_enemy", "known_turn", "master_skills")
+    STATE_KEYS = ("party", "faces", "book", "wave", "target_enemy", "known_turn", "master_skills")
 
     def __init__(self, roster: Roster) -> None:
         self.roster = roster
         self.party: list[FieldServant] = []
         self.faces = {}          # ally_key -> gray face crop
-        self.skill_images = {}   # (ally_key, skill) -> skill icon while it was ready
         self.ready = {}          # (slot, skill) -> ready on this screen
+        self.cooldowns = {}      # (slot, skill) -> turns left as shown on the icon (None if unreadable)
         self.book = BuffBook()
         self.wave = None
         self.waves = None
@@ -50,7 +50,8 @@ class BattleSession:
         self.known_turn = 1
         self.book.reset()
         self.faces.clear()
-        self.skill_images.clear()
+        self.ready = {}
+        self.cooldowns = {}
         self.wave = None
         self.target_enemy = None
 

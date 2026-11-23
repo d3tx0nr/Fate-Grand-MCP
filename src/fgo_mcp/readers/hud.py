@@ -3,14 +3,18 @@ import re
 from dataclasses import dataclass, field
 
 import cv2
+import numpy as np
 
 from fgo_mcp.battle.party import CLASS_WORDS
 from fgo_mcp.device.game import Game
 from fgo_mcp.device.geometry import Region
 from fgo_mcp.fga.locations import Locations
-from fgo_mcp.fga.vision import Snapshot
+from fgo_mcp.fga.vision import Snapshot, template
 from fgo_mcp.readers import glyphs
 from fgo_mcp.readers import ocr
+
+COOLDOWN_SIMILARITY = 0.43
+COOLDOWN_MASK_CUT = 120   # only the letters of the Turn(s) label are compared, the icon art behind them changes
 
 # FGA doesnt have regions for the hud text, so these are placed relative to things FGA does find:
 # battle/enemy/turn text from the wave counter, stars from the attack button and the skill row
@@ -159,6 +163,52 @@ def targeted_enemy(game: Game) -> int | None:
             best = blue
             slot = e
     return slot
+
+def skill_cooldown_region(L: Locations, slot: int, skill: int) -> Region:
+    # a skill on cooldown is darker and shows "Turn(s)" at its bottom left
+    x, y = L.skill(slot, skill)
+    return Region(x - 100, y + 20, 160, 70)
+
+def skill_turns_region(L: Locations, slot: int, skill: int) -> Region:
+    # the number of turns left, right of the Turn(s) label
+    x, y = L.skill(slot, skill)
+    return Region(x + 28, y + 15, 47, 55)
+
+def parse_turns(t: str) -> int | None:
+    t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
+    m = re.search(r"\d{1,2}", t)
+    if m and 1 <= int(m.group()) <= 20:
+        return int(m.group())
+    return None
+
+def cooldown_label_mask():
+    tpl = template("skill_cooldown")
+    mask = (tpl > COOLDOWN_MASK_CUT).astype(np.uint8) * 255
+    return cv2.dilate(mask, np.ones((2, 2), np.uint8))
+
+def cooldown_score(snap: Snapshot, r: Region) -> float:
+    hay = snap.crop(r)
+    tpl = template("skill_cooldown")
+    if hay.shape[0] < tpl.shape[0] or hay.shape[1] < tpl.shape[1]:
+        return 0.0
+    result = cv2.matchTemplate(hay, tpl, cv2.TM_CCOEFF_NORMED, mask=cooldown_label_mask())
+    # masked matching gives nan/inf on flat patches
+    result = np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0)
+    return float(result.max())
+
+def read_skill_cooldowns(game: Game, skills: list[tuple[int, int]]) -> dict[tuple[int, int], int | None]:
+    """the skills (slot, skill) that show the cooldown overlay right now, with the turns left
+    (None if the number couldnt be read). read every time, so skills that got their cooldown
+    shortened by something show up as ready again"""
+    L = Locations(game.ensure_area())
+    snap = Snapshot(game.game_image())
+    cooling = {}
+    for slot, skill in skills:
+        if cooldown_score(snap, skill_cooldown_region(L, slot, skill)) < COOLDOWN_SIMILARITY:
+            continue
+        crop = game.game_image(skill_turns_region(L, slot, skill), scale="native")
+        cooling[(slot, skill)] = ocr.vote(crop, parse_turns)
+    return cooling
 
 def np_strip(a) -> Region:
     # on the card screen ready nps show up as cards with their name in big letters

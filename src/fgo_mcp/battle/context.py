@@ -85,10 +85,10 @@ class BattleContext:
         b = self.battle
         roster = self.roster
         session = self.session
-        if hud.read_turn(self.game) == 1:
+        # on turn 1 a skill without a dialog isnt unlocked yet (nothing can be on cooldown from us)
+        fresh = hud.read_turn(self.game) == 1
+        if fresh:
             self.new_battle()
-        # turn 1 and nothing used yet means no skill can be on cooldown
-        fresh = hud.read_turn(self.game) == 1 and not self.tracker.used
         known = set()
         for s in roster.all("mine"):
             known.add(s.atlas_id)
@@ -131,7 +131,6 @@ class BattleContext:
             emit("battle_start", party=[vars(f) for f in session.party], master_skills=[vars(m) for m in session.master_skills])
             self.started = True
 
-        self.save_skill_images()
         for f in session.party:
             if ally_key(f) in session.faces:
                 continue
@@ -142,36 +141,22 @@ class BattleContext:
         self.save()
         return notes
 
-    def save_skill_images(self) -> None:
-        # like FGA, keep each skill icon while its ready so we can tell later if its ready again
-        snap = self.battle.snap()
-        turn = self.session.known_turn or 0
+    def read_readiness(self) -> None:
+        # read from the screen every time the command screen is read: a skill on cooldown is darker and
+        # shows Turn(s) with the turns left. skills that shorten cooldowns are covered this way too
+        skills = []
         for f in self.session.party:
             if not f.atlas_id:
                 continue
             for n in (1, 2, 3):
-                key = (ally_key(f), n)
-                if key in self.session.skill_images:
-                    continue
-                unlocked = self.roster.skill(f.atlas_id, f.support, n)[0] is not None
-                if unlocked and self.tracker.remaining(f.atlas_id, n, turn) == 0:
-                    self.session.skill_images[key] = snap.patch(self.battle.L.skill_image_region(f.slot, n))
-
-    def read_readiness(self) -> None:
-        # a skill is ready when its saved icon is back. if a cooldown got shortened by some effect
-        # our own count is wrong, so drop it
-        snap = self.battle.snap()
+                if self.roster.skill(f.atlas_id, f.support, n)[0] is not None:
+                    skills.append((f.slot, n))
+        cooling = hud.read_skill_cooldowns(self.game, skills)
         ready = {}
-        for f in self.session.party:
-            for n in (1, 2, 3):
-                image = self.session.skill_images.get((ally_key(f), n))
-                if image is None:
-                    continue
-                is_ready = snap.has_patch(image, self.battle.L.skill_image_region(f.slot, n))
-                ready[(f.slot, n)] = is_ready
-                if is_ready:
-                    self.tracker.used.pop((f.atlas_id, n), None)
+        for key in skills:
+            ready[key] = key not in cooling
         self.session.ready = ready
+        self.session.cooldowns = cooling
 
     def face(self, f):
         owner = "mine"

@@ -48,13 +48,12 @@ def check_skill(eng, slot, skill, target, problems: list[str]) -> None:
     name = None
     if rec and rec.skill_names:
         name = rec.skill_names[skill - 1]
-    left = ctx.tracker.remaining(f.atlas_id, skill, current_turn(eng))
-    # if we have a saved icon, the screen decides. otherwise our own cooldown count
-    ready = ctx.session.ready.get((slot, skill), left == 0)
-    if not ready:
+    # read from the skill icon on this screen
+    if not ctx.session.ready.get((slot, skill), True):
+        left = ctx.session.cooldowns.get((slot, skill))
         msg = f"S{slot} skill {skill} is on cooldown"
         if left:
-            msg += f" (about {left} more turn(s))"
+            msg += f" ({left} more turn(s))"
         problems.append(msg)
     has_target = needs_target(f.atlas_id, skill, name)
     if has_target and target is None:

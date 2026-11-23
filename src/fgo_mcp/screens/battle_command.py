@@ -96,10 +96,10 @@ class BattleCommand(Screen):
             sk, level = ctx.roster.skill(f.atlas_id, f.support, n)
             if not sk:
                 continue
-            left = ctx.tracker.remaining(f.atlas_id, n, turn)
-            if not ctx.session.ready.get((slot, n), left == 0):
+            if not ctx.session.ready.get((slot, n), True):
+                left = ctx.session.cooldowns.get((slot, n))
                 if left:
-                    cooling.append(f"{n} (about {left}T)")
+                    cooling.append(f"{n} ({left}T)")
                 else:
                     cooling.append(f"{n}")
                 continue
@@ -302,8 +302,6 @@ class BattleCommand(Screen):
         f = find_servant(ctx, slot)
         turn = current_turn(eng)
         ctx.battle.use_skill(slot, skill, target)
-        cooldown = ctx.tracker.cooldown_for(ctx.roster, f.atlas_id, f.support, skill)
-        ctx.tracker.record(f.atlas_id, skill, turn, cooldown)
         notes = ctx.session.record_skill(f, skill, target, turn, living_enemies(eng))
         ctx.save()
         result = f"S{slot} skill {skill}"

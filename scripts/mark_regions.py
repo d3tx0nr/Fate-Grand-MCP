@@ -38,6 +38,9 @@ def command_regions(L: Locations, area, snap) -> list:
         regions.append((hud.np_region(L, i), OCR, f"S{i} NP"))
         regions.append((L.field_support_region(i), TEMPLATE, f"S{i} support (FGA)"))
         regions.append((L.servant_present_region(i), TEMPLATE, f"S{i} present"))
+        for n in (1, 2, 3):
+            regions.append((hud.skill_cooldown_region(L, i, n), TEMPLATE, f"{i}.{n} Turn(s)"))
+            regions.append((hud.skill_turns_region(L, i, n), OCR, ""))
     return regions
 
 def command_taps(L: Locations) -> list:
