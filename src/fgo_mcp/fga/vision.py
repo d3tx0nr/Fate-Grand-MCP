@@ -59,7 +59,7 @@ class Snapshot:
         res = cv2.matchTemplate(hay, tpl, cv2.TM_CCOEFF_NORMED)
         _, score, _, (mx, my) = cv2.minMaxLoc(res)
         x0, y0 = max(r.x //2, 0), max(r.y//2, 0)
-        tw, th = tpl.shape
+        th, tw = tpl.shape
         return Match(Region((x0+mx)*2, (y0+my)*2, tw*2, th*2), float(score))
 
     def find(self, name: str, r: Region, similarity: float = MIN_SIMILARITY) -> Match | None:
@@ -77,7 +77,7 @@ class Snapshot:
             return []
         res = cv2.matchTemplate(hay, tpl, cv2.TM_CCOEFF_NORMED)
         x0, y0 = max(r.x //2, 0), max(r.y//2, 0)
-        tw, th = tpl.shape
+        th, tw = tpl.shape
         out: list[Match] = []
         while len(out) < limit:
             _, score, _, (mx, my) = cv2.minMaxLoc(res) 

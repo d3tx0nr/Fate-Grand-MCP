@@ -19,7 +19,7 @@ class Region:
     def bottom(self) -> int:
         return self.y + self.h
 
-    def moved(self, dx: int, dy: int) ->"Region":
+    def moved(self, dx: int, dy: int) -> Region:
         return Region(self.x + dx, self.y + dy, self.w, self.h)
 
 
@@ -28,7 +28,7 @@ class GameArea:
         self.screen_w, self.screen_h = screen_w, screen_h
         ratio = screen_w/screen_h
         if measured:
-            self.rate = screen_h/SCRIPT_H
+            self.rate = measured.h/SCRIPT_H
             self.area = measured
         else:
             self.rate = min(screen_w/SCRIPT_W, screen_h/SCRIPT_H)
@@ -45,7 +45,7 @@ class GameArea:
 
     def centered(self, script_w: int) -> Region:
         w, h = round(script_w*self.rate), round(SCRIPT_H*self.rate)
-        return Region((self.script_w-w)//2, (self.screen_h-h)//2, w, h)
+        return Region((self.screen_w-w)//2, (self.screen_h-h)//2, w, h)
 
     # positions measured on 16:9 (script width 2560), placed on this screen
     def x_from_center(self, x: int) -> int:
