@@ -87,6 +87,16 @@ class Snapshot:
             res[max(my - th // 2, 0):my + th // 2 + 1, max(mx - tw // 2, 0):mx + tw // 2 + 1] = -1
         return out
 
+    def patch(self, r: Region) -> np.ndarray:
+        """A copy of a region, to compare later (FGA getPattern)."""
+        return self.crop(r).copy()
+
+    def has_patch(self, patch: np.ndarray, r: Region, similarity: float = MIN_SIMILARITY) -> bool:
+        """Whether a saved patch is in the region again (the region is widened by 4 px for small shifts)."""
+        hay = self.crop(Region(r.x - 8, r.y - 8, r.w + 16, r.h + 16))
+        score = cv2.minMaxLoc(cv2.matchTemplate(hay, patch, cv2.TM_CCOEFF_NORMED))[1]
+        return score >= similarity
+
     def score(self, name: str, r: Region) -> float:
         m = self.best(name, r)
         return round(m.score, 3) if m else 0.0

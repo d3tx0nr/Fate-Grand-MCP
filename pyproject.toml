@@ -11,6 +11,7 @@ dependencies = [
     "av>=19.0.2",
     "mcp[cli]>=2.3.0",
     "opencv-python>=5.0.0.93",
+    "rapidocr>=3.10.0",
 ]
 
 [project.scripts]
@@ -19,3 +20,6 @@ fgo-mcp = "fgo_mcp:main"
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+constraint-dependencies = ["opencv-python-headless<5.1"]
