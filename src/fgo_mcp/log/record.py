@@ -27,14 +27,33 @@ class Recorder:
         self.count = 0
         self.last_frame = None
         self.screen = "unknown"
+        self.stage = "read"     # "classify" while the engine works out which screen it is
         self.flushing = False
         self.lock = threading.Lock()
 
     def add(self, item: dict) -> None:
         if self.flushing:
             return
+        item["stage"] = self.stage
         with self.lock:
             self.items.append(item)
+
+    def classification_event(self, items: list) -> dict | None:
+        # which checks it took to find the screen type, kept in events.jsonl instead of on the picture
+        misses = {}
+        matched = []
+        checks = 0
+        for it in items:
+            if it["stage"] != "classify" or it["kind"] != "template":
+                continue
+            checks += 1
+            if it["passed"]:
+                matched.append(it["name"])
+            else:
+                misses[it["name"]] = misses.get(it["name"], 0) + 1
+        if checks == 0:
+            return None
+        return {"kind": "classification", "screen": self.screen, "checks": checks, "matched": matched, "misses": misses}
 
     def write_events(self, frame_name) -> None:
         with (self.dir / "events.jsonl").open("a") as f:
@@ -68,6 +87,9 @@ class Recorder:
         (self.dir / "boxes" / f"{name}.json").write_text(json.dumps({"screen": self.screen, "items": items}, default=to_json))
         with self.lock:
             self.last_frame = name
+            summary = self.classification_event(items)
+            if summary is not None:
+                self.pending_events.append(summary)
             self.write_events(name)
         return name
 
@@ -83,16 +105,51 @@ def put_label(img, text: str, x: int, y: int, colour) -> None:
     cv2.putText(img, text, (x, max(y, 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 3, cv2.LINE_AA)
     cv2.putText(img, text, (x, max(y, 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, colour, 1, cv2.LINE_AA)
 
+def same_box_key(it: dict) -> tuple:
+    # boxes that would be drawn the same way, the score can differ a little between repeated checks
+    kind = it["kind"]
+    if kind == "template":
+        return (kind, it["name"], tuple(it["region"]), it["passed"], tuple(it["match"] or ()))
+    if kind == "crop":
+        return (kind, tuple(it["region"]), str(it.get("text")))
+    if kind == "text":
+        return (kind, it["x"], it["y"], it["text"])
+    if kind == "check":
+        return (kind, it["name"], tuple(it["region"]), str(it["result"]))
+    if kind == "tap":
+        return (kind, it["x"], it["y"])
+    return (kind, it.get("x1"), it.get("y1"), it.get("x2"), it.get("y2"))
+
+def group_boxes(items: list) -> list:
+    """[item, count] for every different box, in the order they were first seen"""
+    groups = {}
+    for it in items:
+        key = same_box_key(it)
+        if key not in groups:
+            groups[key] = [it, 0]
+        groups[key][1] += 1
+        if it["kind"] == "template" and it["score"] > groups[key][0]["score"]:
+            groups[key][0] = it
+    return list(groups.values())
+
+def times(count: int) -> str:
+    if count > 1:
+        return f" x{count}"
+    return ""
+
 def draw(img, k: float, items: list):
     def scaled(b):
         return round(b[0]*k), round(b[1]*k), round((b[0] + b[2])*k), round((b[1] + b[3])*k)
 
+    grouped = group_boxes(items)
     # misses first so the things that matched are drawn on top
-    for it in items:
+    for it, count in grouped:
         if it["kind"] == "template" and not it["passed"]:
             x0, y0, x1, y1 = scaled(it["region"])
             cv2.rectangle(img, (x0, y0), (x1, y1), TEMPLATE_MISS, 1)
-    for it in items:
+            if count > 1:
+                put_label(img, f"x{count}", x1 - 22, y1 - 3, TEMPLATE_MISS)
+    for it, count in grouped:
         kind = it["kind"]
         if kind == "template" and it["passed"]:
             x0, y0, x1, y1 = scaled(it["region"])
@@ -100,20 +157,20 @@ def draw(img, k: float, items: list):
             if it["match"]:
                 mx0, my0, mx1, my1 = scaled(it["match"])
                 cv2.rectangle(img, (mx0, my0), (mx1, my1), TEMPLATE_HIT, 2)
-            put_label(img, f"{it['name']} {it['score']:.2f}", x0 + 2, y0 + 12, TEMPLATE_HIT)
+            put_label(img, f"{it['name']} {it['score']:.2f}{times(count)}", x0 + 2, y0 + 12, TEMPLATE_HIT)
         elif kind == "crop":
             x0, y0, x1, y1 = scaled(it["region"])
             cv2.rectangle(img, (x0, y0), (x1, y1), OCR, 1)
             if it.get("text"):
-                put_label(img, str(it["text"])[:45], x0 + 2, y1 - 3, OCR)
+                put_label(img, str(it["text"])[:45] + times(count), x0 + 2, y1 - 3, OCR)
         elif kind == "text":
             x, y = round(it["x"]*k), round(it["y"]*k)
             cv2.circle(img, (x, y), 2, OCR, -1)
-            put_label(img, str(it["text"])[:40], x + 3, y + 10, OCR)
+            put_label(img, str(it["text"])[:40] + times(count), x + 3, y + 10, OCR)
         elif kind == "check":
             x0, y0, x1, y1 = scaled(it["region"])
             cv2.rectangle(img, (x0, y0), (x1, y1), CHECK, 1)
-            put_label(img, f"{it['name']} {it['result']}", x0 + 2, y0 + 12, CHECK)
+            put_label(img, f"{it['name']} {it['result']}{times(count)}", x0 + 2, y0 + 12, CHECK)
         elif kind == "tap":
             x, y = round(it["x"]*k), round(it["y"]*k)
             cv2.circle(img, (x, y), 9, TAP, 2)
@@ -194,6 +251,10 @@ def flush(label: str, game) -> str | None:
     if recorder is None:
         return None
     return recorder.flush(label, game)
+
+def set_stage(stage: str) -> None:
+    if recorder is not None:
+        recorder.stage = stage
 
 def set_screen(screen_type: str) -> None:
     if recorder is not None:

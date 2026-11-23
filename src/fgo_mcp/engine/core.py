@@ -53,7 +53,11 @@ class Engine:
         self.seq = int(self.glob.get("last_screen_id", 0))
 
     def classify_fine(self) -> str:
-        self.fine = classify(self.ctx.battle.snap(), self.ctx.battle.L)
+        record.set_stage("classify")
+        try:
+            self.fine = classify(self.ctx.battle.snap(), self.ctx.battle.L)
+        finally:
+            record.set_stage("read")
         return self.fine
 
     def classify(self) -> str:
