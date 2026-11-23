@@ -14,24 +14,24 @@ def engine():
 def _prep(img: np.ndarray) -> np.ndarray:
     """The text detector needs margin, and small HUD crops read better upscaled."""
     if img.shape[0] < 80:
-        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_AREA)
+        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
     return cv2.copyMakeBorder(img, 16, 16, 16, 16, cv2.BORDER_REPLICATE)
 
 def text(img: np.ndarray) -> list[tuple[str, float]]:
     """(text, score) per detected line. RapidOCR keeps call options between calls, so pass them always."""
     r = engine()(_prep(img), use_det=True, use_cls=True)
-    return list(zip(r.txts or (), r.score or (), strict=False))
+    return list(zip(r.txts or (), r.scores or (), strict=False))
 
 def boxes(img: np.ndarray, pad: int = 16) -> list[tuple[float, float, str]]:
     """(x, y, text) per detected line, top-left corner in the padded image."""
-    r = engine()(cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_REPLICATE))
-    if r.boxes is None or r.texts is None:
+    r = engine()(cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_REPLICATE), use_det=True, use_cls=True)
+    if r.boxes is None or r.txts is None:
         return []
     return [(min(p[0] for p in b), min(p[1] for p in b), t) for b, t in zip(r.boxes, r.txts, strict=False)]
 
 def rects(img: np.ndarray, pad: int = 0) -> list[tuple[float, float, float, float, str]]:
     """(x, y, w, h, text) per detected line, in the (padded) image."""
-    r = engine()(cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_REPLICATE))
+    r = engine()(cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_REPLICATE), use_det=True, use_cls=True)
     if r.boxes is None or r.txts is None:
         return []
     out = []
