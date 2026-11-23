@@ -11,6 +11,7 @@ from fgo_mcp.device.game import Game
 from fgo_mcp.engine.state import ScreenState
 from fgo_mcp.fga import calibrate
 from fgo_mcp.fga.screen import classify
+from fgo_mcp.log import record
 from fgo_mcp.log.events import emit, save_frame
 from fgo_mcp.path import DATA
 from fgo_mcp.screens.battle_checks import find_servant
@@ -95,7 +96,10 @@ class Engine:
 
     def tick(self) -> None:
         with self.lock:
+            # boxes from checks that dont end in a new screen are not kept
+            record.begin()
             t = self.classify()
+            record.set_screen(t)
             if self.device_connected is not True:
                 self.device_connected = True
                 emit("device", status="connected", size=self.game.stream.size)
@@ -157,6 +161,7 @@ class Engine:
         self.dirty = False
         emit("screen", id=self.seq, type=t, fine=self.fine, text=text, needs_creator=needs, build_s=round(time.time() - t0, 2),
              frame=save_frame(self.game.game_image(scale="native"), t, f"s{self.seq}"))
+        record.flush(f"s{self.seq}_{t}", self.game)
         self.save_global()
         self.cond.notify_all()
 
@@ -221,6 +226,7 @@ class Engine:
             if not isinstance(args, dict):
                 return f"REJECTED, nothing was done: args must be an object, got {args!r}"
             scr = SCREENS[st.type]
+            record.begin()
             problems = scr.verify(self, action, args)
             if problems:
                 emit("action", screen_id=st.id, screen=st.type, action=action, args=args, status="rejected", detail=problems)
@@ -233,6 +239,7 @@ class Engine:
                 status = "error"
                 emit("error", where="action", error=outcome, trace=traceback.format_exc()[-2000:])
             emit("action", screen_id=st.id, screen=st.type, action=action, args=args, status=status, detail=outcome)
+            record.flush(f"{st.type}_{action}", self.game)
             self.dirty = True
             self.seen_count = (None, 0)
             self.save_global()

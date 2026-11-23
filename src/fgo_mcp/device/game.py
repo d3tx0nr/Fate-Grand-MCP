@@ -3,6 +3,7 @@ import numpy as np
 
 from fgo_mcp.device.scrcpy import ScrcpyStream
 from fgo_mcp.device.geometry import Region, GameArea
+from fgo_mcp.log import record
 
 class Game:
     def __init__(self):
@@ -28,6 +29,8 @@ class Game:
         """The game area, or a region of it. scale="image": 720p pixels (for templates); "native": screen pixels."""
         frame = self.frame()
         a = self.area
+        if region is not None:
+            record.note_crop(region)
         r = a.region_to_screen(region) if region else a.area
         crop = frame[max(r.y, 0):r.bottom, max(r.x, 0): r.right]
         if scale == "image":
@@ -36,10 +39,12 @@ class Game:
         return crop
 
     def tap(self, x: int, y: int) -> tuple[int, int]:
+        record.note_tap(self, x, y)
         sx, sy = self.ensure_area().to_screen(x, y)
         self.stream.tap(sx, sy)
         return sx, sy
 
     def swipe(self, x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> None:
+        record.note_swipe(self, x1, y1, x2, y2)
         a = self.ensure_area()
         self.stream.swipe(*a.to_screen(x1, y1), *a.to_screen(x2, y2), duration_ms)

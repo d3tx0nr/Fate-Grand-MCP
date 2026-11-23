@@ -10,6 +10,7 @@ from fgo_mcp.device.game import Game
 from fgo_mcp.device.geometry import Region
 from fgo_mcp.fga.locations import Locations
 from fgo_mcp.fga.vision import Snapshot, template
+from fgo_mcp.log import record
 from fgo_mcp.readers import glyphs
 from fgo_mcp.readers import ocr
 
@@ -194,7 +195,9 @@ def cooldown_score(snap: Snapshot, r: Region) -> float:
     result = cv2.matchTemplate(hay, tpl, cv2.TM_CCOEFF_NORMED, mask=cooldown_label_mask())
     # masked matching gives nan/inf on flat patches
     result = np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0)
-    return float(result.max())
+    score = float(result.max())
+    record.note_template("skill_cooldown", r, None, score, COOLDOWN_SIMILARITY)
+    return score
 
 def read_skill_cooldowns(game: Game, skills: list[tuple[int, int]]) -> dict[tuple[int, int], int | None]:
     """the skills (slot, skill) that show the cooldown overlay right now, with the turns left

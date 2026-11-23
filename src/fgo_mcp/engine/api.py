@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from fgo_mcp.engine.core import Engine
-from fgo_mcp.log import events
+from fgo_mcp.log import events, record
 
 # local api of the engine. the mcp adapter uses it, and later a frontend can watch /events
 #   GET  /screen?detail=brief|full
@@ -60,7 +60,10 @@ def create_app(engine: Engine) -> FastAPI:
         if state:
             screen_type = state.type
             screen_id = state.id
-        return reply({"log_dir": str(events.LOG_DIR), "screen": screen_type, "screen_id": screen_id, "error": engine.last_error})
+        record_dir = None
+        if record.recorder is not None:
+            record_dir = str(record.recorder.dir)
+        return reply({"log_dir": str(events.LOG_DIR), "record_dir": record_dir, "screen": screen_type, "screen_id": screen_id, "error": engine.last_error})
 
     @app.post("/tap")
     async def tap(request: Request):

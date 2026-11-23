@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 
 from fgo_mcp.device.geometry import Region
+from fgo_mcp.log import record
 from fgo_mcp.path import ASSETS
 
 FGA_ASSETS = ASSETS / "fga_en"
@@ -43,7 +44,9 @@ class Snapshot:
     def is_black(self, r: Region) -> bool:
         """FGA DroidCvPattern.isBlack: brightest pixel <= 55."""
         c = self.crop(r)
-        return c.size > 0 and int(c.max()) <=55
+        result = c.size > 0 and int(c.max()) <=55
+        record.note_check("black", r, result)
+        return result
 
     def is_white(self, r: Region) -> bool:
         """FGA DroidCvPattern.isWhite: darkest pixel >= 200."""
@@ -64,7 +67,11 @@ class Snapshot:
 
     def find(self, name: str, r: Region, similarity: float = MIN_SIMILARITY) -> Match | None:
         m = self.best(name, r)
-        return m if m and m.score >= similarity else None
+        if m is None:
+            record.note_template(name, r, None, 0.0, similarity)
+            return None
+        record.note_template(name, r, m.region, m.score, similarity)
+        return m if m.score >= similarity else None
 
     def exists(self, name: str, r: Region, similarity: float= MIN_SIMILARITY) -> bool:
         return self.find(name, r, similarity) is not None
@@ -85,6 +92,11 @@ class Snapshot:
                 break
             out.append(Match(Region((x0+mx)*2, (y0+my)*2, tw*2, th*2), float(score)))
             res[max(my - th // 2, 0):my + th // 2 + 1, max(mx - tw // 2, 0):mx + tw // 2 + 1] = -1
+        if out:
+            for m in out:
+                record.note_template(name, r, m.region, m.score, similarity)
+        else:
+            record.note_template(name, r, None, 0.0, similarity)
         return out
 
     def patch(self, r: Region) -> np.ndarray:
@@ -95,6 +107,7 @@ class Snapshot:
         """Whether a saved patch is in the region again (the region is widened by 4 px for small shifts)."""
         hay = self.crop(Region(r.x - 8, r.y - 8, r.w + 16, r.h + 16))
         score = cv2.minMaxLoc(cv2.matchTemplate(hay, patch, cv2.TM_CCOEFF_NORMED))[1]
+        record.note_template("saved patch", r, None, score, similarity)
         return score >= similarity
 
     def score(self, name: str, r: Region) -> float:

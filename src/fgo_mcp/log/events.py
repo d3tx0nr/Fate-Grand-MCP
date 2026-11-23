@@ -6,6 +6,7 @@ import time
 
 import cv2
 
+from fgo_mcp.log import record
 from fgo_mcp.path import LOGS
 
 # every run logs to data/logs/run-<time>/events.jsonl, with a jpg per screen in frames/<label>/
@@ -29,6 +30,7 @@ def emit(kind: str, **fields) -> None:
     event = {"t": round(time.time(), 3), "kind": kind}
     event.update(fields)
     line = json.dumps(event, default=str)
+    record.event(event)
     with lock:
         with (LOG_DIR / "events.jsonl").open("a") as f:
             f.write(line + "\n")
