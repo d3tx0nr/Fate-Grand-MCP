@@ -22,12 +22,12 @@ TOUCH = 2  # control message type
 DOWN, UP, MOVE = 0, 1, 2
 FINGER = -2
 
-def read_extract(sock: socket.socket, n: int) -> bytes:
+def read_exact(sock: socket.socket, n: int) -> bytes:
     data = b""
     while len(data) < n:
         chunk = sock.recv(n-len(data))
         if not chunk:
-            ConnectionError("scrcpy socket closed")
+            raise ConnectionError("scrcpy socket closed")
         data += chunk
     return data
 
@@ -53,7 +53,7 @@ class ScrcpyStream:
             scid = f"{random.getrandbits(31):08x}"
             self.port = int(adb("forward", "tcp:0", f"localabstract:scrcpy_{scid}"))
             server_args = [
-                f"CLASSPATH={DEVICE_JAR}", "app_process", "/", "com.greymobile.scrcpy.Server", VERSION,
+                f"CLASSPATH={DEVICE_JAR}", "app_process", "/", "com.genymobile.scrcpy.Server", VERSION,
                 f"scid={scid}", "log_level=warn", "tunnel_forward=true", "audio=false", "control=true",
                 "video_codec=h264", f"max_size={self.max_size}", "max_fps=30", "video_bit_rate=8000000",
                 "stay_awake=true", "cleanup=true"
@@ -61,10 +61,10 @@ class ScrcpyStream:
             self.server = subprocess.Popen(["adb", "shell", *server_args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             self.video = self.connect_video()
             self.control = socket.create_connection(("127.0.0.1", self.port))
-            read_extract(self.video, 64)
+            read_exact(self.video, 64)
             self.thread = threading.Thread(target = self.decode_video, daemon=True)
             self.thread.start()
-            threading.Thread(target=self.ignore_device_message, daemon=True).start()
+            threading.Thread(target=self.ignore_device_messages, daemon=True).start()
             self.wait_for_frame()
 
     def connect_video(self) -> socket.socket:
@@ -88,23 +88,23 @@ class ScrcpyStream:
             self.server.terminate()
         if self.port:
             try:
-                adb(["forward", "--remove", f"tcp:{self.port}"])
+                adb("forward", "--remove", f"tcp:{self.port}")
             except ADBError:
                 pass
         self.server = self.port = self.video = self.control = self.thread = None
 
     def decode_video(self) -> None:
         try:
-            read_extract(self.video, 4)
+            read_exact(self.video, 4)
             decoder = av.CodecContext.create("h264", "r")
             config = b""
             while True:
-                headers = read_extract(self.video, 12)
+                headers = read_exact(self.video, 12)
                 pts = struct.unpack(">Q", headers[:8])[0]
                 if pts & SESSION_FLAG:  #check for new session
                     self.size = struct.unpack(">II", headers[4:12])
                     continue
-                packet = read_extract(self.video, struct.unpack(">I", headers[8:12])[0])
+                packet = read_exact(self.video, struct.unpack(">I", headers[8:12])[0])
                 if pts & CONFIG_FLAG:
                     config = packet
                     continue
@@ -119,7 +119,7 @@ class ScrcpyStream:
                 self.error = e
                 self.new_frame.notify_all()
 
-    def ignore_device_message(self) -> None:
+    def ignore_device_messages(self) -> None:
         try:
             while self.control and self.control.recv(4096):
                 pass

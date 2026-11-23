@@ -6,7 +6,7 @@ class ADBError(Exception):
 def adb(*args, timeout: float = 60) -> str:
     result = subprocess.run(["adb", *args], capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
-        raise ADBError(result.stderr.strip() or f"adb {' '.join(*args)} failed")
+        raise ADBError(result.stderr.strip() or f"adb {' '.join(args)} failed")
     return result.stdout.strip()
 
 def device_serial() -> str:
