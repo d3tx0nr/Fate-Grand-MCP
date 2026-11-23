@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# runtime data (roster, atlas cache, learned glyphs, logs)
+data/*
+!data/navigation.json
