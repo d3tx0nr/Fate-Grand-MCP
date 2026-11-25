@@ -3,6 +3,8 @@ name = "fgo-mcp"
 version = "0.1.0"
 description = "MCP server that lets LLM agents play Fate/Grand Order on android over adb"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Prateek Kumar", email = "prateekkum990@gmail.com" }
 ]
