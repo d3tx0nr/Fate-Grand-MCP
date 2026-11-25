@@ -43,6 +43,7 @@ class Engine:
         self.last_error = ""
         self.last_auto_tap = 0.0
         self.fine = "unknown"     # FGA's name for the last frame, like "bond" inside "results"
+        self.creator_note = None  # set by an action that found the creator is needed, shown on the next screen
         self.last_saved_fine = None
         self.device_connected = None
         self.withdrawn = False
@@ -160,6 +161,10 @@ class Engine:
             # wait for lists to stop scrolling/fading. battle screens never stand still, their readers vote instead
             self.ctx.battle.settle(timeout=2.0)
         text, data, needs = scr.read(self)
+        if self.creator_note:
+            # an action found the creator is needed: the screen after it says so, whatever screen it is
+            needs = needs or self.creator_note
+            self.creator_note = None
         self.seq += 1
         self.state = ScreenState(self.seq, t, text, data, scr.actions(self), needs, scr.guide)
         self.dirty = False

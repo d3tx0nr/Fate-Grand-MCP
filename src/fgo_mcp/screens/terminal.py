@@ -12,6 +12,11 @@ from fgo_mcp.screens.navigation import (back_click, center_of, list_swipe, map_p
                                         overlay_close_region, terminal_icon_click)
 
 PAN = {"right": (-700, 0), "left": (700, 0), "down": (0, -450), "up": (0, 450)}
+# a quest that was tapped opens one of these. anything else (it stays on the list, a dialog, a screen the
+# engine cannot read) needs the creator: the game wants something only a person should decide
+QUEST_OPENS = {"support", "party", "story", "battle_command", "battle_cards", "battle_busy"}
+QUEST_OPEN_WAIT_S = 8.0
+UNKNOWN_WAIT_S = 8.0     # a screen the engine cannot read for this long after opening a chapter is a movie
 KIND_NAMES = {"home": "Terminal home", "list": "quest list", "map": "chapter map"}
 
 def find_row(rows, number):
@@ -280,6 +285,13 @@ class Terminal(Screen):
                 b.click(pick.tap, wait=2.5)
             eng.glob["quest"] = pick.title
             emit("quest_selected", quest=vars(pick))
+            opened = self.wait_for_quest(eng)
+            if opened not in QUEST_OPENS:
+                why = (f"{pick.title} did not open the story or the party setup after the tap (now: {opened}); "
+                       "the game wants something only the creator should handle")
+                eng.creator_note = why
+                emit("quest_blocked", quest=pick.title, screen=opened)
+                return f"NEEDS CREATOR: {why}. Tell your creator instead of retrying."
             return f"selected {pick.title} (AP {pick.ap})"
         if action == "open":
             return self.open_entry(eng, str(args["name"]))
@@ -438,7 +450,18 @@ class Terminal(Screen):
                     return self.stopped(done, reason)
                 skip.add((here, move, place))
                 continue
-            if not self.wait_for_terminal(eng):
+            now = self.wait_after_move(eng)
+            if now != "menu":
+                if move == "open" and places.all_places()[place].get("story") is not None:
+                    # a new chapter opens with its story or a movie before the map: that is arriving
+                    places.learn_current(place)
+                    emit("nav", **{"from": here, "move": move, "to": place, "ok": True, "reason": f"chapter opened on {now}"})
+                    if now in ("story", "notice", "dialog"):
+                        return f"went to {place}: the chapter starts with its story ({now} on screen now), the map comes after it"
+                    why = (f"{place} opened, but a movie or a screen the engine cannot read is playing (story movies "
+                           "show as black): ask your creator to watch or skip it")
+                    eng.creator_note = why
+                    return f"went to {place}. NEEDS CREATOR: {why}, then read the screen again"
                 emit("nav", **{"from": here, "move": move, "to": place, "ok": False, "reason": "terminal did not come back"})
                 return self.stopped(done, f"the Terminal did not come back after {move} {place}")
             kind = self.kind(eng)
@@ -527,6 +550,50 @@ class Terminal(Screen):
                     return True
                 time.sleep(0.5)
         return False
+
+    @staticmethod
+    def wait_for_quest(eng) -> str:
+        """the screen type a tapped quest leads to: one of QUEST_OPENS as soon as it shows, else what is on
+        screen once the wait is over"""
+        end = time.time() + QUEST_OPEN_WAIT_S
+        t = eng.classify()
+        while time.time() < end:
+            if t in QUEST_OPENS:
+                return t
+            time.sleep(0.5)
+            t = eng.classify()
+        return t
+
+    @staticmethod
+    def wait_after_move(eng, timeout: float = 20) -> str:
+        """after a move: "menu" once the terminal shows twice in a row, the story / notice / dialog that shows
+        instead, or "unknown" when nothing readable shows for a while (a movie)"""
+        end = time.time() + timeout
+        last = None
+        seen = 0
+        unknown_since = None
+        while time.time() < end:
+            t = eng.classify()
+            if t == last:
+                seen += 1
+            else:
+                seen = 1
+            last = t
+            if seen >= 2:
+                if t == "menu":
+                    eng.ctx.battle.settle(timeout=2.0)
+                    return t
+                if t in ("story", "notice", "dialog"):
+                    return t
+            if t == "unknown":
+                if unknown_since is None:
+                    unknown_since = time.time()
+                if time.time() - unknown_since >= UNKNOWN_WAIT_S:
+                    return t
+            else:
+                unknown_since = None
+            time.sleep(0.5)
+        return last or "unknown"
 
     @staticmethod
     def wait_for_terminal(eng, timeout: float = 20) -> bool:
