@@ -1,4 +1,3 @@
-import difflib
 
 # short text of what each skill/np does at the owned level, for the llm. not a simulator
 TARGETS = {
@@ -85,29 +84,13 @@ def effect_text(f: dict, sv: dict) -> str | None:
     label = f.get("funcPopupText") or func_type
     return f"{label} {target}{chance_text}"
 
-def name_ratio(a: str, b: str) -> float:
-    return difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-def pick_skill(svt: dict, num: int, name: str | None = None) -> dict | None:
-    """skill in slot num. the name seen on screen picks the rank up version, otherwise highest priority"""
-    variants = []
+def pick_skill(svt: dict, num: int) -> dict | None:
+    """skill in slot num from atlas: the base version (lowest priority), rank ups are not assumed"""
+    base = None
     for sk in svt["skills"]:
-        if sk["num"] == num:
-            variants.append(sk)
-    if len(variants) == 0:
-        return None
-    if name:
-        best = variants[0]
-        for sk in variants:
-            if name_ratio(sk["name"], name) > name_ratio(best["name"], name):
-                best = sk
-        if name_ratio(best["name"], name) >= 0.8:
-            return best
-    highest = variants[0]
-    for sk in variants:
-        if sk["priority"] > highest["priority"]:
-            highest = sk
-    return highest
+        if sk["num"] == num and (base is None or sk["priority"] < base["priority"]):
+            base = sk
+    return base
 
 def pick_np(svt: dict) -> dict | None:
     """current np, the highest priority one (after rank ups)"""
@@ -161,12 +144,11 @@ def np_line(svt: dict) -> str:
         return "NP: none"
     return f"NP {np_kind(svt)}: {np_['detail']}"
 
-def kit_card(svt: dict, label: str, skill_levels: list[int] | None = None, skill_names: list[str] | None = None) -> str:
+def kit_card(svt: dict, label: str, skill_levels: list[int] | None = None) -> str:
     levels = skill_levels or [10, 10, 10]
-    names = skill_names or [None, None, None]
     lines = [f"{label}: {svt['name']} ({svt['className'].title()}, {svt['rarity']}*)", "  " + np_line(svt)]
     for num in (1, 2, 3):
-        sk = pick_skill(svt, num, names[num - 1])
+        sk = pick_skill(svt, num)
         if sk is not None:
             level = levels[num - 1]
             lines.append(f"  S{num} {sk['name']} Lv{level} " + skill_line(sk, level))

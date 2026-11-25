@@ -273,11 +273,9 @@ class Engine:
                     owner = "support"
                 s = ctx.roster.get(f.atlas_id, owner)
                 levels = None
-                names = None
                 if s:
                     levels = s.skill_levels
-                    names = s.skill_names
-                cards.append(kits.kit_card(atlas.get(f.atlas_id), f.label(), levels, names))
+                cards.append(kits.kit_card(atlas.get(f.atlas_id), f.label(), levels))
             return "\n".join(cards) or "no party identified yet (only known in battle)"
         if topic == "master":
             lines = []

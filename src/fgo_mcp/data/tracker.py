@@ -19,8 +19,8 @@ class SkillTracker:
         used_turn, cd = self.used[(atlas_id, num)]
         return max(0, used_turn + cd - turn_now)
 
-def needs_target(atlas_id: int, num: int, skill_name: str | None = None) -> bool:
-    sk = kits.pick_skill(atlas.get(atlas_id), num, skill_name)
+def needs_target(atlas_id: int, num: int) -> bool:
+    sk = kits.pick_skill(atlas.get(atlas_id), num)
     if not sk:
         return False
     for f in sk["functions"]:

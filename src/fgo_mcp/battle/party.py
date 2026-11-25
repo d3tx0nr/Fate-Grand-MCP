@@ -135,7 +135,7 @@ def register(roster: Roster, party: list[FieldServant]) -> list[tuple[FieldServa
     return result
 
 # skill levels from the confirm skill use dialog: tap skill, read it, then cancel
-SKILL_LINE_RE = re.compile(r"(.+?)\s*L[vy][.,]?\s*(\d+)", re.IGNORECASE)   # ocr reads Lv as Ly sometimes
+SKILL_LEVEL_RE = re.compile(r"L[vy][.,]?\s*(\d+)", re.IGNORECASE)   # ocr reads Lv as Ly sometimes
 
 def skill_dialog_region() -> Region:
     return Region(600, 450, 1600, 100)
@@ -147,7 +147,6 @@ def cancel_click(L: Locations) -> tuple[int, int]:
 class SkillRead:
     slot: int
     skill: int
-    name: str | None = None
     level: int | None = None
     note: str = ""
 
@@ -155,7 +154,8 @@ CONFIRMATION_OFF = ("no skill confirmation dialog appeared: the game's skill con
                     "back on in the game's options, then restart the engine")
 
 def read_skill(battle, roster: Roster, fs: FieldServant, num: int) -> SkillRead:
-    """never actually uses the skill, so the game's skill confirmation has to stay on"""
+    """the skill level from the confirm dialog ("Name Lv.6"). the skill itself comes from atlas, the name on
+    screen isnt used. never actually uses the skill, so the game's skill confirmation has to stay on"""
     from fgo_mcp.battle.actions import BattleError
 
     result = SkillRead(fs.slot, num)
@@ -178,10 +178,9 @@ def read_skill(battle, roster: Roster, fs: FieldServant, num: int) -> SkillRead:
         if score > 0.5:
             texts.append(t)
     text = " ".join(texts)
-    m = SKILL_LINE_RE.search(text)
-    if m:
-        result.name = m.group(1).strip()
-        result.level = int(m.group(2))
+    m = SKILL_LEVEL_RE.search(text)
+    if m and 1 <= int(m.group(1)) <= 10:
+        result.level = int(m.group(1))
     battle.click(cancel_click(L), wait=0.6)
     if not battle.wait_until(battle.is_idle, 3):
         raise BattleError("skill dialog did not close after Cancel")
@@ -209,6 +208,5 @@ def refresh_skills(battle, roster: Roster, fs: FieldServant, fresh: bool = False
         if fs.support:
             owner = "support"
         levels = [r.level for r in reads]
-        names = [r.name for r in reads]
-        roster.set_skills(fs.atlas_id, owner, levels, names, level=fs.level)
+        roster.set_skills(fs.atlas_id, owner, levels, level=fs.level)
     return reads

@@ -41,13 +41,6 @@ def check_skill(eng, slot, skill, target, problems: list[str]) -> None:
     if ctx.roster.skill(f.atlas_id, f.support, skill)[0] is None:
         problems.append(f"S{slot} has no skill {skill}")
         return
-    owner = "mine"
-    if f.support:
-        owner = "support"
-    rec = ctx.roster.get(f.atlas_id, owner)
-    name = None
-    if rec and rec.skill_names:
-        name = rec.skill_names[skill - 1]
     # read from the skill icon on this screen
     if not ctx.session.ready.get((slot, skill), True):
         left = ctx.session.cooldowns.get((slot, skill))
@@ -55,7 +48,7 @@ def check_skill(eng, slot, skill, target, problems: list[str]) -> None:
         if left:
             msg += f" ({left} more turn(s))"
         problems.append(msg)
-    has_target = needs_target(f.atlas_id, skill, name)
+    has_target = needs_target(f.atlas_id, skill)
     if has_target and target is None:
         problems.append(f'S{slot} skill {skill} needs an ally target (1-3), given with the skill itself: '
                         f'{{"slot":{slot},"skill":{skill},"target":2}} (in turn, inside its "skills" entry; the '

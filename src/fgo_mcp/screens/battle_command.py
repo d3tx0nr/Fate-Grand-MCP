@@ -104,7 +104,7 @@ class BattleCommand(Screen):
                     cooling.append(f"{n}")
                 continue
             target_text = ""
-            if needs_target(f.atlas_id, n, sk["name"]):
+            if needs_target(f.atlas_id, n):
                 target_text = " (needs target)"
             ready.append(f"[{n}]{target_text} {kits.skill_tags(sk, level)}")
         line = "   ready: " + (" | ".join(ready) or "none")
