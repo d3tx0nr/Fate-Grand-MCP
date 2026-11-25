@@ -7,7 +7,7 @@ from fgo_mcp.device.geometry import Region
 from fgo_mcp.engine.state import ActionSpec
 from fgo_mcp.log.events import emit, save_frame
 from fgo_mcp.readers import ocr, party_screen, support_list
-from fgo_mcp.screens.base import Screen, int_arg, unknown_keys
+from fgo_mcp.screens.base import Screen, int_arg, unknown_keys, SeenSoFar
 from fgo_mcp.screens.navigation import back_click
 
 REFRESH_THROTTLE_S = 10   # game only lets you refresh the list every 10s
@@ -30,6 +30,9 @@ class Support(Screen):
     guide = ("Choose a support servant: pick(row). scroll shows more, top goes back up, refresh updates the list "
              "(at most every 10 s), class_tab filters (all, saber, archer, lancer, rider, caster, assassin, "
              "berserker, extra, mix). back returns to the quest list.")
+
+    def __init__(self):
+        self.seen = SeenSoFar()
 
     def actions(self, eng):
         return [ActionSpec("pick", "row as listed", '{"row":1}'), ActionSpec("scroll", "", "{}"),
@@ -66,7 +69,19 @@ class Support(Screen):
                 position = "bottom"
             else:
                 position = "middle"
-            text += f"\nList position: {position}; class tab: {eng.glob.get('support_tab', 'as the game shows')}"
+            tab = support_list.selected_tab(eng.game, b.L) or eng.glob.get("support_tab", "as the game shows")
+            text += f"\nList position: {position}; class tab: {tab}"
+            # one list = this quest, this class tab, this refresh
+            key = (eng.glob.get("quest"), tab, eng.glob.get("support_refreshed_at"))
+            items = []
+            for r in rows:
+                if r.complete and r.name:
+                    items.append((f"{r.atlas_id or r.name} {r.np_level} {r.skills}", r.text().split(" ", 1)[1]))
+            self.seen.update(eng, key, items, self.type)
+            complete = sum(1 for r in rows if r.complete)
+            seen_text = self.seen.text("on this support list", complete, at_end=state["at_bottom"])
+            if seen_text:
+                text += "\n" + seen_text
         text = selected_quest(eng) + text
         data = {"rows": [r.text() for r in rows]}
         data.update(state)
@@ -135,7 +150,7 @@ class Support(Screen):
             eng.glob["support_refreshed_at"] = time.time()
             return "refreshed the support list"
         name = str(args["name"]).strip().lower()
-        b.click(L.support_class_tab(support_list.CLASS_TABS[name]), wait=1.5)
+        b.click(L.support_class_tab(support_list.class_tabs(eng.game, L)[name]), wait=1.5)
         eng.glob["support_tab"] = name
         return f"showing class tab {name}"
 

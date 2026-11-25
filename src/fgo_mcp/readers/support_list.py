@@ -2,6 +2,8 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+import cv2
+
 from fgo_mcp.data import atlas, kits
 from fgo_mcp.device.geometry import Region
 from fgo_mcp.fga.locations import Locations
@@ -16,6 +18,10 @@ EMPTY_SKILL_STD = 45      # empty skill slot is flat (std ~25), an icon is 70-90
 GUEST_MARK_DY = 282       # friend/guest mark y minus top of the entry, measured on logged frames
 CLASS_TABS = {"all": 184, "saber": 320, "archer": 454, "lancer": 568, "rider": 724, "caster": 858,
               "assassin": 994, "berserker": 1130, "extra": 1264, "mix": 1402}
+# some quests add a "Suggested" tab on the left, the class tabs then move right and closer together
+# (measured on a logged frame of the Fuyuki quests)
+CLASS_TABS_SUGGESTED = {"all": 297, "saber": 417, "archer": 543, "lancer": 666, "rider": 788, "caster": 908,
+                        "assassin": 1028, "berserker": 1150, "extra": 1273, "mix": 1395}
 SERVANT_LABEL_RE = re.compile(r"s[eoa]rv[ae]nt")
 
 @dataclass
@@ -68,10 +74,35 @@ def clip(r: Region, top: int, bottom: int) -> Region:
     y1 = min(r.bottom, bottom)
     return Region(r.x, y0, r.w, max(y1 - y0, 0))
 
-def identify(name: str) -> int | None:
-    candidates = atlas.match(name)
+def identify(name: str, cls: str | None = None) -> int | None:
+    candidates = atlas.match(name, cls)
     if len(candidates) == 1:
         return candidates[0]["id"]
+    return None
+
+CLASS_ONLY_TABS = ("saber", "archer", "lancer", "rider", "caster", "assassin", "berserker")
+
+def class_tabs(game, L: Locations) -> dict[str, int]:
+    """where the class tabs are: the leftmost tab is "Suggested" on some quests"""
+    cx, cy = L.support_class_tab(CLASS_TABS_SUGGESTED["all"] - 116)
+    text = ocr.line(game.game_image(Region(cx - 60, cy - 40, 120, 80), scale="native"))
+    if "sugg" in text.lower():
+        return CLASS_TABS_SUGGESTED
+    return CLASS_TABS
+
+def selected_tab(game, L: Locations) -> str | None:
+    """the class tab with the blue outline. on a class tab every support listed is that class, except story
+    guests (they are on every tab)"""
+    scores = {}
+    for name, x in class_tabs(game, L).items():
+        cx, cy = L.support_class_tab(x)
+        hsv = cv2.cvtColor(game.game_image(Region(cx - 70, cy - 70, 140, 140)), cv2.COLOR_BGR2HSV)
+        blue = (hsv[..., 0] > 95) & (hsv[..., 0] < 125) & (hsv[..., 1] > 120) & (hsv[..., 2] > 170)
+        scores[name] = float(blue.mean())
+    best = max(scores, key=scores.get)
+    rest = sorted(scores.values())[-2]
+    if scores[best] > 0.04 and scores[best] > 2 * rest:
+        return best
     return None
 
 def skill_digit(t: str) -> int | None:
@@ -125,6 +156,8 @@ def read_skill_levels(game, s: Snapshot, b: Region) -> tuple:
 
 def read(game, s: Snapshot, L: Locations) -> list[SupportEntry]:
     found = entries(s, L)
+    tab = selected_tab(game, L)
+    tab_class = tab if tab in CLASS_ONLY_TABS else None
     for e in found:
         b = e.bounds
         friend_region = clip(L.support_friend_region, b.y, b.bottom)
@@ -167,7 +200,12 @@ def read(game, s: Snapshot, L: Locations) -> list[SupportEntry]:
             if m:
                 e.np_level = int(m.group(1))
         if e.name:
-            e.atlas_id = identify(e.name)
+            # on a class tab the class tells same-name servants apart (Cú Chulainn, Tam Lin Tristan). story
+            # guests are on every tab, and a wrong tab read must not lose a name that matches on its own
+            if tab_class and e.kind != "guest":
+                e.atlas_id = identify(e.name, tab_class)
+            if e.atlas_id is None:
+                e.atlas_id = identify(e.name)
             if e.atlas_id:
                 svt = atlas.get(e.atlas_id)
                 e.cls = svt["className"]

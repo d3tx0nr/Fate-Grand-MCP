@@ -11,7 +11,7 @@ from fgo_mcp.path import DATA
 API = "https://api.atlasacademy.io"
 REGION = "NA"
 INFO_CHECK_SECONDS = 24*3600
-SLIM_FILE = "slim_servant.v3.json"   # change the name when slim_servant() changes
+SLIM_FILE = "slim_servant.v4.json"   # change the name when slim_servant() changes
 
 def download(url: str, timeout: float = 300) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "fgo-mcp (personal use)"})
@@ -106,6 +106,11 @@ def slim_servant(s: dict) -> dict:
                     battle_names.add(v)
         elif value:
             battle_names.add(value)
+    # names used before the true name is revealed in the story ("Archer of Shinjuku")
+    for change in s.get("svtChange") or []:
+        for key in ("name", "battleName"):
+            if change.get(key):
+                battle_names.add(change[key])
 
     skills = []
     for sk in s["skills"]:

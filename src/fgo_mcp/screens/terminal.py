@@ -7,7 +7,7 @@ from fgo_mcp.device.geometry import Region
 from fgo_mcp.engine.state import ActionSpec
 from fgo_mcp.log.events import emit, save_frame
 from fgo_mcp.readers import quests, terminal
-from fgo_mcp.screens.base import Screen, int_arg, unknown_keys
+from fgo_mcp.screens.base import Screen, SeenSoFar, int_arg, unknown_keys
 from fgo_mcp.screens.navigation import (back_click, center_of, list_swipe, map_pan_from, menu_click,
                                         overlay_close_region, terminal_icon_click)
 
@@ -42,6 +42,7 @@ class Terminal(Screen):
         self.scroll_down = True
         self.last_seen = ()
         self.left_list = False
+        self.seen = SeenSoFar()
 
     @staticmethod
     def kind(eng) -> str:
@@ -150,11 +151,31 @@ class Terminal(Screen):
         self.last_seen = seen
         if rows:
             lines.append("Quests:\n" + "\n".join(r.text() for r in rows))
+        # what scrolling this list or map has shown so far, so it doesnt have to be scrolled again
+        items = [(r.title, r.text().split(" ", 1)[1]) for r in rows]
+        for e in entries:
+            # a banner of a known place is that place, whatever ocr made of it this time ("Chaidea Gate")
+            known = None
+            if kind != "map":
+                known = places.place_of_entry(e.text, [p for p in places.all_places() if p != place])
+            if known:
+                shown = known
+                if places.NEXT_MARK.match(e.text):
+                    shown += " [NEXT]"
+                items.append((known, shown))
+            else:
+                items.append((e.text.removesuffix(" [NEXT]"), e.text))
+        # by place, not title: a mission toast over the title changes its text from frame to frame
+        self.seen.update(eng, (kind, place), items, self.type)
+        label = {"map": "on this map", "home": "in the Terminal list"}.get(kind, "in this list")
+        seen_text = self.seen.text(label, len(items), at_end=bool(position and position[1] >= 0.97 and position[0] > 0.03))
         if entries:
             if kind == "map":
                 lines.append("Map places (open by name): " + " | ".join(entry_texts))
             else:
                 lines.append("Entries: " + " | ".join(entry_texts))
+        if seen_text:
+            lines.append(seen_text)
 
         next_row = None
         for r in rows:
