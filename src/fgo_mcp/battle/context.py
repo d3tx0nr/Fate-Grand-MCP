@@ -1,3 +1,5 @@
+import time
+
 import cv2
 
 from fgo_mcp.battle import details, party
@@ -13,6 +15,8 @@ from fgo_mcp.path import DATA
 from fgo_mcp.readers import hud
 
 STATE_PATH = DATA / "engine_battle_state.pkl"
+RESCAN_WAIT_S = 3.0   # a voice line caption can cover the name strip for a few seconds
+RESCANS = 2
 FACES_DIR = DATA / "faces"   # delete a face to capture it again
 
 class BattleContext:
@@ -81,6 +85,26 @@ class BattleContext:
             self.supports_read.update(data["supports_read"])
             self.started = True
 
+    def rescan_unidentified(self, known: set) -> None:
+        """reads the name strip again for servants on the field it couldnt identify: a voice line caption is
+        drawn over the strip for a few seconds"""
+        present = self.battle.servants_present(self.battle.snap())
+        for _ in range(RESCANS):
+            missing = []
+            for f in self.session.party:
+                if f.atlas_id is None and present[f.slot - 1]:
+                    missing.append(f.slot)
+            if not missing:
+                return
+            time.sleep(RESCAN_WAIT_S)
+            again = party.scan(self.game, prefer=known)
+            found = []
+            for f in again:
+                if f.slot in missing and f.atlas_id:
+                    self.session.party[f.slot - 1] = f
+                    found.append(f.slot)
+            emit("party_rescan", missing=missing, found=found, raws={f.slot: f.raw for f in again if f.slot in missing})
+
     def scan_party(self) -> list[str]:
         """find out who is on the field, read skill levels if needed, mystic code skills and faces.
         only reads information, never makes a choice in the game"""
@@ -95,6 +119,7 @@ class BattleContext:
         for s in roster.all("mine"):
             known.add(s.atlas_id)
         session.party = party.scan(self.game, prefer=known)
+        self.rescan_unidentified(known)
 
         # the support name from the support list is cleaner than the battle ocr
         picked = session.support_name or ""

@@ -16,11 +16,14 @@ CLASS_WORDS = {
     "AVENGER": "avenger", "ALTEREGO": "alterEgo", "MOONCANCER": "moonCancer", "FOREIGNER": "foreigner",
     "PRETENDER": "pretender", "BEAST": "beast",
 }
-NAME_RE = re.compile(r"([A-Z]+)\s*Lv\.?\s*(\d+)\s*(.+)", re.IGNORECASE)
+NAME_RE = re.compile(r"^(.*?)[LE][Vv][.,]?\s*(\d{1,3})\s*(.+)$")
 NAME_RE_SWAPPED = re.compile(r"([A-Za-z]+)\s+(.+?)\s*Lv\.?\s*(\d+)")
-# ocr reads level digits wrong sometimes, "LV.T20" is Lv.120 and "Lv.3O" is Lv.30
-LEVEL_RE = re.compile(r"(L[Vv][.,]?\s*)([0-9TIlOo]{1,3})(?=\D|$)")
-LEVEL_DIGIT_FIX = str.maketrans("TIlOo", "11100")
+# letters ocr confuses in the gold class word: "CA3TLR" is CASTER, "AJJAJJIN" is ASSASSIN
+CLASS_OCR_FIX = str.maketrans("3$5J01", "SSSSOI")
+CLASS_CUTOFF = 0.6
+# ocr reads the level wrong sometimes: "LV.T20" and "LvX20" are Lv.120, "Lv.3O" is Lv.30, "Ev.120" is Lv.120
+LEVEL_RE = re.compile(r"([LE][Vv][.,]?\s*)([0-9TIlOoX]{1,3})(?=\D|$)")
+LEVEL_DIGIT_FIX = str.maketrans("TIlOoX", "111001")
 
 def fix_level_digits(text: str) -> str:
     def fix(m):
@@ -45,9 +48,11 @@ class FieldServant:
         return f"S{self.slot} {who}"
 
 def name_region(L: Locations, slot: int) -> Region:
+    # "CLASS Lv.N Name" under the NP bar. placed from the skill row like the NP and HP regions: on wide
+    # phones the whole strip sits ~40px higher than on 16:9 (a fixed y read only the bottom of the letters)
     x0 = max(L.skill(slot, 1)[0] - 150, 0)
     x1 = L.skill(slot, 3)[0] + 160
-    return Region(x0, 1370, x1 - x0, 70)
+    return Region(x0, L.skill(slot, 1)[1] + 212, x1 - x0, 70)
 
 def class_word(token: str) -> str | None:
     # close match so ocr typos like "BERSEERKER" still work
@@ -56,12 +61,32 @@ def class_word(token: str) -> str | None:
         return CLASS_WORDS[matches[0]]
     return None
 
+def class_in(head: str) -> str | None:
+    """the class word in the text before "Lv": any of its words or all of them joined ("CAS,ILR" is CASTER),
+    with the letters ocr confuses fixed. stray letters next to it ("LANCER R") are ignored"""
+    tokens = [t for t in re.split(r"[^A-Za-z0-9$]+", head) if t]
+    tries = tokens + ["".join(tokens)]
+    best = None
+    best_score = 0.0
+    for t in tries:
+        t = t.upper().translate(CLASS_OCR_FIX)
+        if len(t) < 4:
+            continue
+        for word, cls in CLASS_WORDS.items():
+            score = difflib.SequenceMatcher(None, t, word).ratio()
+            if score > best_score:
+                best = cls
+                best_score = score
+    if best_score >= CLASS_CUTOFF:
+        return best
+    return None
+
 def parse_name_line(text: str) -> tuple[str | None, int | None, str | None]:
     """'CLASS Lv.N Name', also 'CLASS Name Lv.N' when ocr returns it out of order"""
     text = fix_level_digits(text.replace("Lv,", "Lv."))
     m = NAME_RE.search(text)
     if m:
-        cls = class_word(m.group(1))
+        cls = class_in(m.group(1))
         if cls:
             return cls, int(m.group(2)), m.group(3).strip()
     m = NAME_RE_SWAPPED.search(text)
