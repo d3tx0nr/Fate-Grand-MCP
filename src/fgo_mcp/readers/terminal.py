@@ -66,6 +66,7 @@ HUD_RIGHT = 1150
 HUD_TOP = 1100
 NEXT_LABEL_DY = 700
 NEXT_NODE_DY = 70
+NEXT_ARROW_DY = 50     # the arrow under the NEXT word, the marker ends there
 NOISE = re.compile(r"^(A[Pp]\s*[\dOo]{1,3}|NEW!?|MENU|-?C[LI]EAR-?|Tap here!?|Ongoing!?|Pickup:?|Drop ?Rate ?UP!?|SSR|\*\d|\d+)$", re.I)
 INFO_LINE = re.compile(r"(Day\(s\)|Period|Remaining|Until \d|PST|Requirements|AP Cost|Quest Progress|^Cost)", re.I)
 
@@ -193,6 +194,7 @@ def read_map_places(game) -> list[Entry]:
     anchors = Anchors(game)
     r = map_region(anchors)
     places = []
+    markers = []
     rects = ocr.rects(game.game_image(r, scale="native"))
     rects.sort(key=lambda b: (b[1], b[0]))
     for x, y, w, h, t in rects:
@@ -204,20 +206,21 @@ def read_map_places(game) -> list[Entry]:
             # master level and AP block
             continue
         t = t.strip()
-        if t.upper() == "NEXT" or HUD_WORDS.search(t):
+        if is_next_marker(t.upper()):
+            # the NEXT marker over the next story node. read by ocr, not a template: the marker is drawn over
+            # the map, and every map has a different background behind it
+            markers.append((sx + sw/2, sy + sh + NEXT_ARROW_DY))
+            continue
+        if HUD_WORDS.search(t):
             continue
         letters = re.sub(r"[^A-Za-zÀ-ž]", "", t)
         if len(letters) >= 4 and not NOISE.match(t) and t.upper() != "NOTES":
             places.append(Entry(len(places) + 1, t, (round(sx + sw/2), round(sy + sh/2)), "place"))
-    return mark_next(game, places)
+    return mark_next(places, markers)
 
-def mark_next(game, places: list[Entry]) -> list[Entry]:
+def mark_next(places: list[Entry], markers: list[tuple[float, float]]) -> list[Entry]:
     # the NEXT marker bounces over the next story node. the label under it gets [NEXT] and goes first
-    snap = Snapshot(game.game_image())
-    anchors = Anchors(game)
-    for m in snap.find_all("nav_next", Region(anchors.nav_left(0), 0, anchors.width, 1300), 0.8):
-        mx = m.region.x + m.region.w/2
-        my = m.region.bottom
+    for mx, my in markers:
         below = []
         for e in places:
             if 0 < e.tap[1] - my < NEXT_LABEL_DY and abs(e.tap[0] - mx) < 450 and not e.text.endswith("[NEXT]"):
