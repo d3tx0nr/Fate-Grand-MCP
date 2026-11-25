@@ -7,7 +7,7 @@ import time
 import cv2
 
 from fgo_mcp.log import record
-from fgo_mcp.path import LOGS
+from fgo_mcp.path import LOGS, prune
 
 # every run logs to data/logs/run-<time>/events.jsonl, with a jpg per screen in frames/<label>/
 # nothing is written before start_log(), so scripts using the readers dont make logs
@@ -20,6 +20,7 @@ subscribers = []
 
 def start_log():
     global LOG_DIR
+    prune(LOGS, "run")
     LOG_DIR = LOGS / ("run-" + time.strftime("%Y%m%d-%H%M%S"))
     (LOG_DIR / "frames").mkdir(parents=True)
     return LOG_DIR

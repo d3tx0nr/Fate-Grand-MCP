@@ -3,7 +3,7 @@ import threading
 
 import cv2
 
-from fgo_mcp.path import DATA
+from fgo_mcp.path import DATA, prune
 
 # "record" mode, for debugging: keeps every frame of a run with the boxes the engine looked at on it (template checks,
 # ocr crops and the text read, taps) and the events that belong to that frame, in data/runs/<run>/.
@@ -183,6 +183,7 @@ def draw(img, k: float, items: list):
 
 def start(name: str):
     global recorder
+    prune(RUNS, "run")
     recorder = Recorder(RUNS / name)
     return recorder.dir
 

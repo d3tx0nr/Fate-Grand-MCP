@@ -4,7 +4,7 @@ import time
 
 from mcp import ClientSession, StdioServerParameters, stdio_client
 
-from fgo_mcp.path import LOGS
+from fgo_mcp.path import LOGS, prune
 from fgo_mcp.runner.groq import Groq, RequestTooLarge
 from fgo_mcp.runner.ollama import Ollama
 
@@ -71,6 +71,7 @@ async def play(task: str, provider: str = "ollama", max_steps: int = 400) -> Non
         llm = Ollama()
     else:
         llm = Groq()
+    prune(LOGS, "agent")
     log_dir = LOGS / ("agent-" + time.strftime("%Y%m%d-%H%M%S"))
     log_dir.mkdir(parents=True)
     (log_dir / "task.txt").write_text(f"{task}\n(model: {llm.name} {llm.model})\n")
