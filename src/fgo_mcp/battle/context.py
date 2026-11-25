@@ -3,7 +3,7 @@ import cv2
 from fgo_mcp.battle import details, party
 from fgo_mcp.battle.actions import Battle
 from fgo_mcp.battle.session import BattleSession, ally_key
-from fgo_mcp.data import atlas
+from fgo_mcp.data import atlas, places
 from fgo_mcp.data.store import Roster
 from fgo_mcp.data.tracker import SkillTracker
 from fgo_mcp.device.adb import device_serial
@@ -20,7 +20,9 @@ class BattleContext:
     def __init__(self, game: Game) -> None:
         self.game = game
         self.battle = Battle(game)
-        self.roster = Roster(device_serial())
+        serial = device_serial()
+        self.roster = Roster(serial)
+        places.use_device(serial)
         self.tracker = SkillTracker()
         self.session = BattleSession(self.roster)
         self.supports_read = set()

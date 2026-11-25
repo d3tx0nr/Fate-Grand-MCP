@@ -284,7 +284,18 @@ class Engine:
         if topic == "global":
             return self.global_text()
         if topic == "locations":
-            return places.summary()
+            note = ""
+            if not places.load_progress()["current"]:
+                with self.lock:
+                    st = self.state
+                    if st is not None and st.type == "menu" and not self.dirty:
+                        current = SCREENS["menu"].learn_progress(self)
+                        self.dirty = True
+                        self.seen_count = (None, 0)
+                        note = "\n(the engine went to the Terminal home to read the story progress; read the screen again)"
+                        if current is None:
+                            return "Story progress could not be read from the Terminal home list." + note
+            return places.summary() + note
         return "topics: kits, master, status (with slot), global, locations"
 
     def status_info(self, slot) -> str:

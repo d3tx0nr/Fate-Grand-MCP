@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from fgo_mcp.data.places import is_next_marker
 from fgo_mcp.device.geometry import Region
 from fgo_mcp.fga.vision import Snapshot
 from fgo_mcp.readers import ocr
@@ -275,10 +276,11 @@ def read_entries(game, region: Region | None = None) -> list[Entry]:
         if not is_subtitle:
             kept.append(e)
 
-    # lines of one banner are ~72px apart, different banners 190+, so join close lines into one entry
+    # lines of one banner are ~72px apart, different banners 190+, so join close lines into one entry.
+    # the NEXT marker sits right above its banner, close to the banner before it too: it always starts a new one
     banners = []
     for e in kept:
-        if banners and e.tap[1] - banners[-1][-1].tap[1] < BANNER_LINE_GAP:
+        if banners and e.tap[1] - banners[-1][-1].tap[1] < BANNER_LINE_GAP and not is_next_marker(e.text):
             banners[-1].append(e)
         else:
             banners.append([e])

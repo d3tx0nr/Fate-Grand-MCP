@@ -1,7 +1,7 @@
 {
  "region": "NA",
  "surveyed": "2026-11-15",
- "about": "Fixed places of the Terminal. parent: where back() goes once the place is in its list (a story chapter is moved there after it is cleared; the chapter being played is on the Terminal home). banner: words of the banner that opens it. at: where the banner is in the list (0 top, 1 bottom). titles: words in the place's own title. story: order in the main story. requires: story index that has to be reached before the place shows up (main interludes, approximate).",
+ "about": "Fixed places of the Terminal. parent: where back() goes once the place is in its list. phase: the parent changes once the story passes 'after' (Part 1 chapters sit on the Terminal home until Solomon is cleared, then all of them move into Main Record 1). banner: words of the banner that opens it. order: rank among the places in the same list, top to bottom (story chapters without one use 100 - story, newest on top). titles: words in the place's own title. story: order in the main story. requires: story index that has to be reached before the place shows up (requires_exact: the place showing up proves that index).",
  "places": {
   "Terminal": {
    "banner": "Terminal",
@@ -14,56 +14,55 @@
   "Chaldea Gate": {
    "parent": "Terminal",
    "banner": "Chaldea Gate",
-   "at": 0.01,
    "kind": "list",
    "titles": [
     "Chaldea Gate"
-   ]
+   ],
+   "order": 0
   },
   "Daily Quests": {
    "parent": "Chaldea Gate",
    "banner": "Daily Quests",
-   "at": 0.66,
    "kind": "list",
    "titles": [
     "Daily Quest"
    ],
-   "holds": "Ember Gathering (class pair of the day; every pair during campaigns), Training Ground (skill gems), Enter the Treasure Vault (QP); Novice to Extreme (AP 5-20)"
+   "holds": "Ember Gathering (class pair of the day; every pair during campaigns), Training Ground (skill gems), Enter the Treasure Vault (QP); Novice to Extreme (AP 5-20)",
+   "order": 0
   },
   "Interlude": {
    "parent": "Chaldea Gate",
    "banner": "Interlude",
-   "at": 0.66,
    "kind": "list",
    "titles": [
     "Interlude"
    ],
-   "holds": "servant interlude quests"
+   "holds": "servant interlude quests",
+   "order": 1
   },
   "Rank Up Quest": {
    "parent": "Chaldea Gate",
    "banner": "Rank Up Quest",
-   "at": 0.66,
    "kind": "list",
    "titles": [
     "Rank Up Quest"
    ],
-   "holds": "skill and NP rank-up quests"
+   "holds": "skill and NP rank-up quests",
+   "order": 2
   },
   "Advanced Quest": {
    "parent": "Chaldea Gate",
    "banner": "Advanced Quest",
-   "at": 1.0,
    "kind": "list",
    "titles": [
     "Advanced Quest"
    ],
-   "holds": "hard quests with a fixed party (no support)"
+   "holds": "hard quests with a fixed party (no support)",
+   "order": 3
   },
   "Ordeal Call": {
    "parent": "Terminal",
    "banner": "Ordeal Call",
-   "at": 0.14,
    "kind": "map",
    "titles": [
     "Ordeal Call"
@@ -73,7 +72,6 @@
   "Nahui Mictlan": {
    "parent": "Terminal",
    "banner": "Nahui Mictlan",
-   "at": 0.14,
    "kind": "map",
    "titles": [
     "Nahui Mictlan",
@@ -84,7 +82,6 @@
   "Avalon le Fae": {
    "parent": "Terminal",
    "banner": "Avalon le Fae",
-   "at": 0.35,
    "kind": "map",
    "titles": [
     "Avalon le Fae",
@@ -95,7 +92,6 @@
   "Olympus": {
    "parent": "Terminal",
    "banner": "Lostbelt No.5",
-   "at": 0.35,
    "kind": "map",
    "titles": [
     "Olympus",
@@ -107,7 +103,6 @@
   "Yugakshetra": {
    "parent": "Terminal",
    "banner": "Yugakshetra",
-   "at": 0.39,
    "kind": "map",
    "titles": [
     "Yugakshetra",
@@ -118,7 +113,6 @@
   "SIN": {
    "parent": "Terminal",
    "banner": "SIN",
-   "at": 0.39,
    "kind": "map",
    "titles": [
     "SIN",
@@ -129,7 +123,6 @@
   "Gotterdammerung": {
    "parent": "Terminal",
    "banner": "Gotterdammerung",
-   "at": 0.39,
    "kind": "map",
    "titles": [
     "Gotterdammerung",
@@ -141,7 +134,6 @@
   "Anastasia": {
    "parent": "Terminal",
    "banner": "Anastasia",
-   "at": 0.51,
    "kind": "map",
    "titles": [
     "Anastasia",
@@ -152,121 +144,151 @@
   "Main Record 1.5": {
    "parent": "Terminal",
    "banner": "Main Record 1.5",
-   "at": 0.64,
    "kind": "list",
    "titles": [
     "Main Record"
-   ]
+   ],
+   "order": 88,
+   "requires": 9,
+   "requires_exact": true
   },
   "Main Record 1": {
    "parent": "Terminal",
    "banner": "Main Record 1",
-   "at": 0.64,
    "kind": "list",
    "titles": [
     "Main Record"
-   ]
+   ],
+   "order": 89,
+   "requires": 9,
+   "requires_exact": true
   },
   "Main Interlude": {
    "parent": "Terminal",
    "banner": "Main Interlude",
-   "at": 1.0,
    "kind": "list",
    "titles": [
     "Main Interlude"
    ],
-   "requires": 9
+   "order": 200
   },
   "Solomon": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Solomon",
-   "at": 0.01,
    "kind": "map",
    "titles": [
     "Solomon"
    ],
-   "story": 8
+   "story": 8,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Babylonia": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Babylonia",
-   "at": 0.01,
    "kind": "map",
    "titles": [
     "Babylonia"
    ],
-   "story": 7
+   "story": 7,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Camelot": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Camelot",
-   "at": 0.01,
    "kind": "map",
    "titles": [
     "Camelot"
    ],
-   "story": 6
+   "story": 6,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "E Pluribus Unum": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "E Pluribus Unum",
-   "at": 0.35,
    "kind": "map",
    "titles": [
     "E Pluribus Unum"
    ],
-   "story": 5
+   "story": 5,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "London": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "London",
-   "at": 0.35,
    "kind": "map",
    "titles": [
     "London"
    ],
-   "story": 4
+   "story": 4,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Okeanos": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Okeanos",
-   "at": 0.38,
    "kind": "map",
    "titles": [
     "Okeanos"
    ],
-   "story": 3
+   "story": 3,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Septem": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Septem",
-   "at": 0.38,
    "kind": "map",
    "titles": [
     "Septem"
    ],
-   "story": 2
+   "story": 2,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Orleans": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Orleans",
-   "at": 0.38,
    "kind": "map",
    "titles": [
     "Orleans"
    ],
-   "story": 1
+   "story": 1,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Fuyuki": {
-   "parent": "Main Record 1",
+   "parent": "Terminal",
    "banner": "Fuyuki",
-   "at": 1.0,
    "kind": "map",
    "titles": [
     "Fuyuki",
     "Singularity F"
    ],
-   "story": 0
+   "story": 0,
+   "phase": {
+    "after": 8,
+    "parent": "Main Record 1"
+   }
   },
   "Shinjuku": {
    "parent": "Main Record 1.5",
@@ -311,7 +333,7 @@
    "titles": [
     "Tunguska Sanctuary"
    ],
-   "requires": 19
+   "order": 0
   },
   "Heian-kyo": {
    "parent": "Main Interlude",
@@ -320,7 +342,8 @@
    "titles": [
     "Heian-kyo"
    ],
-   "requires": 18
+   "requires": 18,
+   "order": 1
   },
   "Imaginary Scramble": {
    "parent": "Main Interlude",
@@ -329,7 +352,7 @@
    "titles": [
     "Imaginary Scramble"
    ],
-   "requires": 17
+   "order": 2
   },
   "SE.RA.PH": {
    "parent": "Main Interlude",
@@ -338,7 +361,7 @@
    "titles": [
     "SE.RA.PH"
    ],
-   "requires": 9
+   "order": 3
   },
   "Merry Christmas Underworld": {
    "parent": "Main Interlude",
@@ -347,7 +370,7 @@
    "titles": [
     "Merry Christmas Underworld"
    ],
-   "requires": 19
+   "order": 4
   }
  }
 }

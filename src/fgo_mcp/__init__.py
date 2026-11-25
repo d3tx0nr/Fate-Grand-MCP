@@ -46,7 +46,9 @@ def main() -> None:
         print(calibrate(screenshot()))
     elif command == "progress":
         from fgo_mcp.data import places
+        from fgo_mcp.device.adb import device_serial
 
+        places.use_device(device_serial())
         if len(sys.argv) > 2:
             place = places.set_current(" ".join(sys.argv[2:]))
             if place is None:

@@ -7,11 +7,17 @@ from functools import cache
 
 from fgo_mcp.path import DATA
 
-# the terminal's fixed places as a graph (data/navigation.json). which ones are reachable depends on how far
-# the account is in the story: cleared chapters sit in their list (Main Record 1, ...), the chapter being
-# played is on the terminal home, later ones dont exist yet. progress is kept in data/progress.json,
-# set by the user and corrected by what the terminal actually shows
+# the terminal's fixed places as a graph (data/navigation.json). which ones are reachable and where they sit
+# depends on how far the account is in the story: Part 1 chapters stay on the terminal home until Part 1 is
+# cleared, then all of them move into Main Record 1 (a "phase" in the data); later chapters dont exist yet.
+# progress is kept per device in data/progress-<serial>.json, set by the user and corrected by what the
+# terminal actually shows
 PROGRESS_FILE = DATA / "progress.json"
+
+def use_device(serial: str) -> None:
+    """one progress file per device, like the roster: one game account per device"""
+    global PROGRESS_FILE
+    PROGRESS_FILE = DATA / f"progress-{serial}.json"
 
 @cache
 def all_places() -> dict[str, dict]:
@@ -35,6 +41,12 @@ def current_index() -> int | None:
         return None
     return all_places()[current].get("story")
 
+def chapter_at(story: int) -> str | None:
+    for name, info in all_places().items():
+        if info.get("story") == story:
+            return name
+    return None
+
 def set_current(name: str) -> str | None:
     """sets the chapter being played now, returns the place name or None if it isnt a story chapter"""
     place = find(name, only_available=False)
@@ -45,6 +57,32 @@ def set_current(name: str) -> str | None:
     save_progress(progress)
     return place
 
+def phases_passed(idx: int | None) -> list[int]:
+    """the phase switches the story is past (8: Part 1 cleared). an observation from another phase is out of date"""
+    passed = set()
+    if idx is None:
+        return []
+    for info in all_places().values():
+        phase = info.get("phase")
+        if phase and idx > phase["after"]:
+            passed.add(phase["after"])
+    return sorted(passed)
+
+def seen_parent(entry, idx: int | None) -> str | None:
+    """the parent the screen showed, if it was seen in the phase the story is in now"""
+    if isinstance(entry, str):
+        # written before observations were stamped, may be from the wrong phase ("Interlude" learned from "Main Interlude")
+        return None
+    if entry.get("phases") != phases_passed(idx):
+        return None
+    return entry.get("parent")
+
+def static_parent(info: dict, idx: int | None) -> str | None:
+    phase = info.get("phase")
+    if phase and idx is not None and idx > phase["after"]:
+        return phase["parent"]
+    return info.get("parent")
+
 def available() -> dict[str, dict]:
     """places this account can reach, with the parent they have right now"""
     idx = current_index()
@@ -52,41 +90,26 @@ def available() -> dict[str, dict]:
     result = {}
     for name, info in all_places().items():
         place = dict(info)
-        story = info.get("story")
-        requires = info.get("requires")
-        # a chapter seen on the terminal home goes back to its list once its cleared
-        stale = seen.get(name) == "Terminal" and story is not None and idx is not None and story < idx
-        if name in seen and not stale:
+        place["parent"] = static_parent(info, idx)
+        observed = None
+        if name in seen:
+            observed = seen_parent(seen[name], idx)
+        if observed:
             # the screen showed it there, that wins over what we think
-            place["parent"] = seen[name]
+            place["parent"] = observed
             result[name] = place
             continue
         if idx is None:
             # progress not set, treat everything as reachable
             result[name] = place
             continue
-        if story is not None:
-            if story > idx:
-                continue
-            if story == idx:
-                place["parent"] = "Terminal"
-        elif requires is not None and requires > idx:
+        story = info.get("story")
+        requires = info.get("requires")
+        if story is not None and story > idx:
+            continue
+        if requires is not None and requires > idx:
             continue
         result[name] = place
-
-    # a chapter list with nothing in it isnt shown by the game (no Main Record 1 before Fuyuki is cleared)
-    for name in list(result.keys()):
-        if result[name]["kind"] != "list" or name in seen:
-            continue
-        holds_chapters = False
-        has_child = False
-        for child, other in all_places().items():
-            if other.get("parent") == name and ("story" in other or "requires" in other):
-                holds_chapters = True
-                if child in result and result[child].get("parent") == name:
-                    has_child = True
-        if holds_chapters and not has_child:
-            del result[name]
     return result
 
 def is_available(place: str) -> bool:
@@ -96,48 +119,123 @@ def learn_parent(place: str, parent: str) -> None:
     """the game showed place inside parent (or back from place led to parent)"""
     if place not in all_places() or place == parent:
         return
-    progress = load_progress()
     reachable = available()
     if place in reachable and reachable[place].get("parent") == parent:
         return
-    progress["seen"][place] = parent
+    progress = load_progress()
     story = all_places()[place].get("story")
     idx = current_index()
-    if parent == "Terminal" and story is not None and (idx is None or story > idx):
-        # a chapter on the terminal home is the one being played
+    if story is not None and (idx is None or story > idx):
+        # a chapter the game lists is reached
         progress["current"] = place
+        idx = story
+    progress["seen"][place] = {"parent": parent, "phases": phases_passed(idx)}
     save_progress(progress)
 
 def learn_current(place: str) -> None:
     # you can only open the chapter you are on or older ones, so a newer one means the story moved on
     story = all_places().get(place, {}).get("story")
+    if story is not None:
+        reach_story(story)
+
+def reach_story(story: int) -> None:
+    """the story is at least at chapter story"""
     idx = current_index()
-    if story is None or idx is None or story <= idx:
+    name = chapter_at(story)
+    if name is None or (idx is not None and story <= idx):
         return
     progress = load_progress()
-    progress["current"] = place
+    progress["current"] = name
     save_progress(progress)
+
+def place_of_entry(text: str, pool) -> str | None:
+    """the place an entry of a list is: same words as its banner, else the banner with the most words that
+    all appear in it ("Main Interlude ..." is Main Interlude, not Interlude)"""
+    best = None
+    best_len = 0
+    for name in pool:
+        banner = all_places()[name].get("banner", name)
+        if words(text) == words(banner):
+            return name
+        if contains(text, banner) and len(words(banner)) > best_len:
+            best = name
+            best_len = len(words(banner))
+    return best
+
+# the game puts a NEXT marker on the banner of the chapter being played, ocr reads it in front of the banner text
+# ("NEXT First Singularity ... Orleans", "NEYT ...", "NEUT"). "NEWT" is the NEW badge, not this
+NEXT_MARK = re.compile(r"^\W*NI?E[XYUV]T\b")
+NEXT_ALONE = re.compile(r"^\W*NI?E[XYUV]T\W*$")
+
+def is_next_marker(text: str) -> bool:
+    """a line that is only the NEXT marker, its banner is the one below it"""
+    return NEXT_ALONE.match(text) is not None
+
+def next_marked(entries: list[str]) -> str | None:
+    """the story chapter whose banner carries the NEXT marker"""
+    chapters = [name for name, info in all_places().items() if info.get("story") is not None]
+    for e in entries:
+        if NEXT_MARK.match(e):
+            name = place_of_entry(e, chapters)
+            if name:
+                return name
+    return None
+
+NOT_LEARNED = ("Story progress not learned yet, so which places this account has is not known. The engine learns it "
+               "from the Terminal home list: call fgo_info(\"locations\") while on a Terminal screen and wait for the "
+               "list of places before choosing where to go.")
 
 def learn_banners(location: str, entries: list[str]) -> list[str]:
     """banners of known places seen in the list at location. returns the places learned"""
     learned = []
-    reachable = available()
-    for name, info in all_places().items():
-        if name == location:
+    pool = [name for name in all_places() if name != location]
+    for e in entries:
+        name = place_of_entry(e, pool)
+        if name is None or name in learned:
             continue
-        banner = info.get("banner", name)
-        found = False
-        for e in entries:
-            if words(e) == words(banner) or contains(e, banner):
-                found = True
-                break
-        if not found:
-            continue
+        info = all_places()[name]
+        if info.get("story") is not None:
+            # a chapter the game lists is reached
+            reach_story(info["story"])
+        if info.get("requires_exact"):
+            # this place only shows up from that point of the story on (Main Record 1: Part 1 is cleared)
+            reach_story(info["requires"])
+        reachable = available()
         if name in reachable and reachable[name].get("parent") == location:
             continue
         learn_parent(name, location)
         learned.append(name)
     return learned
+
+def rank(place: str) -> float | None:
+    """where a place sits in its list, smaller is higher up"""
+    info = all_places().get(place, {})
+    if info.get("order") is not None:
+        return info["order"]
+    if info.get("story") is not None:
+        return 100 - info["story"]
+    return None
+
+def direction_to(target: str, location: str, entries: list[str]) -> str | None:
+    """"up" or "down": where target is from the known banners on screen now, None if none of them is known
+    (news and event banners) or target is between them (it should be on screen)"""
+    goal = rank(target)
+    if goal is None:
+        return None
+    reachable = available()
+    siblings = [n for n, info in reachable.items() if info.get("parent") == location and n != target]
+    ranks = []
+    for e in entries:
+        name = place_of_entry(e, siblings)
+        if name is not None and rank(name) is not None:
+            ranks.append(rank(name))
+    if not ranks:
+        return None
+    if goal > max(ranks):
+        return "down"
+    if goal < min(ranks):
+        return "up"
+    return None
 
 def words(text: str) -> list[str]:
     """lower case words without accents. a dot before a number stays ("No.1", "1.5"), other dots are ocr noise"""
@@ -293,7 +391,7 @@ def summary() -> str:
     if current:
         lines.append(f"Story progress: playing {current} (earlier chapters are cleared, later ones not unlocked)")
     else:
-        lines.append("Story progress: not set, every place is assumed reachable (creator: fgo-mcp progress <chapter>)")
+        return NOT_LEARNED
     lines.append("Places go(place) can reach (Terminal > list > chapter):")
     for p, info in reachable.items():
         line = f"- {trail(p)}"
