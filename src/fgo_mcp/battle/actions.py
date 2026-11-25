@@ -1,20 +1,15 @@
-import re
 import time
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import cv2
-import numpy as np
 
 from fgo_mcp.device.game import Game
-from fgo_mcp.device.geometry import Region
 from fgo_mcp.fga.locations import Locations, Point
 from fgo_mcp.fga.screen import card_types, classify
 from fgo_mcp.fga.vision import Snapshot
 from fgo_mcp.log.events import emit
-from fgo_mcp.readers import digits
-from fgo_mcp.readers.ocr import engine as ocr_engine
 
 # waits are from FGA (Caster.kt, Battle.kt, Card.kt). slots, skills and cards start at 1
 CLICK_WAIT = 0.3
@@ -32,7 +27,6 @@ class Card:
     affinity: str               # weak, normal, resist
     stunned: bool
     owner: int | None = None    # field slot 1-3
-    crit: int | None = None
     uncertain: list[str] = field(default_factory=list)   # fields where the frames didnt agree
 
     def text(self) -> str:
@@ -49,7 +43,6 @@ class Battle:
     def __init__(self, game: Game):
         self.g = game
         self.master_button_x = None
-        self.ocr_crit_cards = set()   # cards where crit came from ocr, so their digits can be learned
 
     @property
     def L(self) -> Locations:
@@ -171,10 +164,9 @@ class Battle:
         return result
 
     def read_cards(self, s: Snapshot | None = None, faces: dict | None = None,
-                   support_slot: int | None = None, crit: bool = True, frames: int = 3) -> list[Card]:
+                   support_slot: int | None = None, frames: int = 3) -> list[Card]:
         """reads the hand from a few frames and takes the majority for each field.
         faces = {slot: gray face crop}, support_slot = field slot of the support"""
-        self.ocr_crit_cards = set()
         if faces is None:
             faces = {}
         if s is not None:
@@ -202,54 +194,8 @@ class Battle:
                     card.uncertain.append(field_names[idx])
             if card.stunned:
                 card.type = None
-            if crit:
-                card.crit = self.card_crit(i + 1)
-            else:
-                card.crit = 0
             cards.append(card)
         return cards
-
-    def crit_crop(self, c: int):
-        x = self.L.card_click(c)[0]
-        return self.g.game_image(Region(x - 200, 705, 280, 85), scale="native")
-
-    def card_crit(self, c: int) -> int:
-        value = digits.read(self.crit_crop(c))
-        if value is not None:
-            return value
-        # digit templates dont know this one yet
-        self.ocr_crit_cards.add(c)
-        return self.card_crit_ocr(c)
-
-    def crit_variants(self, x: int) -> list:
-        # the shiny italic digits are hard for ocr, so try a few different thresholds
-        images = []
-        crop = None
-        for dx, w, y, h in ((-140, 190, 720, 60), (-150, 210, 710, 80)):
-            crop = self.g.game_image(Region(x + dx, y, w, h), scale="native")
-            hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-            for sat, val in ((60, 150), (80, 170)):
-                m = ((hsv[..., 1] < sat) & (hsv[..., 2] > val)).astype(np.uint8) * 255
-                images.append(cv2.resize(255 - m, None, fx=3, fy=3, interpolation=cv2.INTER_NEAREST))
-        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-        otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        images.append(cv2.resize(255 - otsu, None, fx=3, fy=3))
-        return images
-
-    def card_crit_ocr(self, c: int) -> int:
-        x = self.L.card_click(c)[0]
-        votes = Counter()
-        for img in self.crit_variants(x):
-            padded = cv2.copyMakeBorder(img, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=255)
-            r = ocr_engine()(padded, use_det=True, use_cls=False)
-            m = re.search(r"(100|[1-9]0)\s*%", " ".join(r.txts or []))
-            if m:
-                votes[int(m.group(1))] += 1
-                if votes.most_common(1)[0][1] >= 2:
-                    break
-        if not votes:
-            return 0
-        return votes.most_common(1)[0][0]
 
     def card_owner(self, s: Snapshot, c: int, faces: dict, support_slot: int | None) -> int | None:
         L = self.L

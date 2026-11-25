@@ -37,7 +37,6 @@ class BattleSession:
         self.target_enemy = None
         self.last_hud = None
         self.last_np = None
-        self.crit_note = ""
         self.known_turn = None
         self.support_rows = []
         self.support_from_list = None
@@ -195,12 +194,12 @@ class BattleSession:
                 affinity = " " + c.affinity
             if f and f.atlas_id:
                 st = self.book.card_stats(ally_key(f), enemy_target, c.type, c.affinity, turn)
-                stats = f"dmg x{st['dmg']}, crit {c.crit}% (crit dmg x{st['crit_x']})"
+                stats = f"dmg x{st['dmg']}"
                 if c.owner not in cards_by_owner:
                     cards_by_owner[c.owner] = []
                 cards_by_owner[c.owner].append(c)
             else:
-                stats = f"crit {c.crit}%"
+                stats = "no stats (owner not identified)"
             unsure = ""
             if c.uncertain:
                 unsure = f" [uncertain: {', '.join(c.uncertain)}]"
@@ -224,6 +223,4 @@ class BattleSession:
             f = by_slot[slot]
             ids = ",".join(f"c{c.card}" for c in cards)
             lines.append(f"Brave chain possible: 3 of {f.label()[3:]}'s cards ({ids}) -> extra attack (x{BRAVE_EXTRA} card)")
-        if self.crit_note:
-            lines.append("NOTE: " + self.crit_note)
         return "\n".join(lines)

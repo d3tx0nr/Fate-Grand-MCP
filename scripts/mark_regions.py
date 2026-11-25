@@ -23,7 +23,6 @@ def command_regions(L: Locations, area, snap) -> list:
     regions = [
         (hud.hud_region(snap, L), OCR, "wave / enemies left"),
         (hud.turn_region(snap, L), OCR, "turn"),
-        (hud.stars_region(snap, L), OCR, "stars"),
         (L.battle_check_region, TEMPLATE, "battle (classify)"),
         (L.master_offset_search_region, TEMPLATE, "master button"),
     ]
@@ -59,8 +58,6 @@ def cards_regions(L: Locations, area, snap) -> list:
         regions.append((L.card_affinity_region(c), TEMPLATE, f"C{c} weak/resist"))
         regions.append((L.card_stun_region(c), TEMPLATE, f"C{c} stun"))
         regions.append((L.card_servant_region(c), TEMPLATE, f"C{c} face"))
-        x = L.card_click(c)[0]
-        regions.append((Region(x - 200, 705, 280, 85), OCR, f"C{c} crit %"))
     return regions
 
 def cards_taps(L: Locations) -> list:

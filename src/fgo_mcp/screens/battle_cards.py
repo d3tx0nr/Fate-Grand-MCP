@@ -19,7 +19,6 @@ class BattleCards(Screen):
     def read(self, eng):
         ctx = eng.ctx
         s = ctx.session
-        stars = hud.read_stars(eng.game)
         has_np_values = False
         if s.last_np:
             for v in s.last_np:
@@ -31,7 +30,7 @@ class BattleCards(Screen):
             gauges = hud.read_np(eng.game)
         g = ctx.np_gauges_on_cards(gauges)
         s.last_np = [g.get(1), g.get(2), g.get(3)]
-        hand = ctx.read_hand(stars)
+        hand = ctx.read_hand()
         ctx.hand = hand
 
         ready_slots = []
@@ -41,18 +40,13 @@ class BattleCards(Screen):
         ready_text = "none"
         if ready_slots:
             ready_text = ", ".join(f"NP{slot}" for slot in ready_slots)
-        stars_text = "?"
-        if stars is not None:
-            stars_text = str(stars)
-        text = f"Stars {stars_text}\n" + s.card_table(hand, current_turn(eng), g)
-        if s.crit_note:
-            text += "\n" + s.crit_note
+        text = s.card_table(hand, current_turn(eng), g)
         text += f"\nREADY NPs: {ready_text}"
 
         cards = []
         for c in hand:
-            cards.append({"card": c.card, "type": c.type, "affinity": c.affinity, "owner": c.owner, "crit": c.crit})
-        data = {"stars": stars, "ready_nps": ready_slots, "cards": cards}
+            cards.append({"card": c.card, "type": c.type, "affinity": c.affinity, "owner": c.owner})
+        data = {"ready_nps": ready_slots, "cards": cards}
         return text, data, None
 
     def verify(self, eng, action, args):
@@ -84,7 +78,7 @@ class BattleCards(Screen):
         if not hand or eng.state_type() != "battle_cards":
             g = ctx.np_gauges_on_cards(ctx.session.last_np or [None, None, None])
             ctx.session.last_np = [g.get(1), g.get(2), g.get(3)]
-            hand = ctx.read_hand(hud.read_stars(eng.game))
+            hand = ctx.read_hand()
             ctx.hand = hand
         not_ready = np_not_ready(nps, gauges_by_slot(ctx.session.last_np))
         if not_ready:

@@ -60,7 +60,7 @@ class BattleCommand(Screen):
             ctx.scanned_present = present
         ctx.read_readiness()
         turn = h.turn or 0
-        emit("hud", turn=h.turn, wave=h.wave, waves=h.waves, enemies_left=h.enemies_left, stars=h.stars, np=h.np, hp=h.hp,
+        emit("hud", turn=h.turn, wave=h.wave, waves=h.waves, enemies_left=h.enemies_left, np=h.np, hp=h.hp,
              enemies=[vars(e) for e in h.enemies], target=h.target,
              frame=save_frame(eng.game.game_image(scale="native"), "battle_command", f"turn{turn}"))
         s.target_enemy = h.target or s.target_enemy
@@ -69,7 +69,7 @@ class BattleCommand(Screen):
         for e in h.enemies:
             if e.hp:
                 enemies.append({"slot": e.slot, "hp": e.hp, "class": e.cls, "danger": e.danger})
-        data = {"wave": h.wave, "waves": h.waves, "turn": turn, "stars": h.stars, "np": h.np, "hp": h.hp, "enemies": enemies}
+        data = {"wave": h.wave, "waves": h.waves, "turn": turn, "np": h.np, "hp": h.hp, "enemies": enemies}
         ctx.save()
         return text, data, None
 
@@ -115,14 +115,11 @@ class BattleCommand(Screen):
     def brief(self, eng, h, present, turn) -> str:
         ctx = eng.ctx
         s = ctx.session
-        stars_text = "?"
-        if h.stars is not None:
-            stars_text = str(h.stars)
         left_text = ""
         if h.enemies_left:
             left_text = f" ({h.enemies_left} left in this wave)"
         enemies = self.enemy_lines(eng, h, turn)
-        lines = [f"Wave {h.wave}/{h.waves}, turn {turn}, stars {stars_text}",
+        lines = [f"Wave {h.wave}/{h.waves}, turn {turn}",
                  "Enemies" + left_text + ": " + ("; ".join(enemies) or "none visible")]
 
         # buffs every servant has are shown once as party wide

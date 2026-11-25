@@ -122,8 +122,7 @@ class BuffBook:
         power = a.get("power", 0) + a.get("power:face", 0) + a.get(f"power:{t}", 0)
         dmg = (1 + a.get("atk", 0)) * (1 + a.get(f"card:{t}", 0)) * (1 + power)
         dmg = dmg * (1 - e.get("def", 0)) * (1 - e.get(f"card_res:{t}", 0)) * AFFINITY.get(affinity, 1.0)
-        crit = 2 * (1 + a.get("crit", 0) + a.get(f"crit:{t}", 0))
-        return {"dmg": round(dmg, 2), "crit_x": round(crit, 2)}
+        return {"dmg": round(dmg, 2)}
 
     def np_stats(self, ally: tuple, enemy: tuple | None, card_type: str, turn: int) -> float:
         a = self.totals(ally, turn)

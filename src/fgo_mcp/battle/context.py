@@ -10,7 +10,7 @@ from fgo_mcp.device.adb import device_serial
 from fgo_mcp.device.game import Game
 from fgo_mcp.log.events import emit, save_frame
 from fgo_mcp.path import DATA
-from fgo_mcp.readers import digits, hud
+from fgo_mcp.readers import hud
 
 STATE_PATH = DATA / "engine_battle_state.pkl"
 FACES_DIR = DATA / "faces"   # delete a face to capture it again
@@ -174,8 +174,8 @@ class BattleContext:
         cv2.imwrite(str(path), face)
         return face
 
-    def read_hand(self, stars: int | None):
-        """cards with owners and crit %. crit is marked unsure if it doesnt add up to stars x 10%"""
+    def read_hand(self):
+        """cards with owners"""
         session = self.session
         faces = {}
         support_slot = None
@@ -184,25 +184,9 @@ class BattleContext:
                 faces[f.slot] = session.faces[ally_key(f)]
             if f.support and support_slot is None:
                 support_slot = f.slot
-        read_crit = stars is None or stars > 0
-        hand = self.battle.read_cards(faces=faces, support_slot=support_slot, crit=read_crit)
-        session.crit_note = ""
-        emit("hand", stars=stars, cards=[vars(c) for c in hand], ocr_crit=sorted(self.battle.ocr_crit_cards),
+        hand = self.battle.read_cards(faces=faces, support_slot=support_slot)
+        emit("hand", cards=[vars(c) for c in hand],
              frame=save_frame(self.game.game_image(scale="native"), "battle_cards", "hand"))
-        if stars:
-            total = 0
-            for c in hand:
-                total += c.crit or 0
-            expected = min(stars*10, 100*len(hand))
-            if total != expected:
-                session.crit_note = f"crit chances unreliable this turn: they add up to {total}% but {stars} stars should give {expected}%"
-                for c in hand:
-                    c.uncertain.append("crit")
-            elif self.battle.ocr_crit_cards:
-                # the total is right, so the ocr reads can be learned as digit templates
-                for c in hand:
-                    if c.card in self.battle.ocr_crit_cards:
-                        digits.learn(self.battle.crit_crop(c.card), c.crit or 0)
         return hand
 
     def np_gauges_on_cards(self, gauges: list[int | None]) -> dict[int, int | None]:

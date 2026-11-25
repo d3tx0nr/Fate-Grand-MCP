@@ -18,7 +18,7 @@ COOLDOWN_SIMILARITY = 0.43
 COOLDOWN_MASK_CUT = 120   # only the letters of the Turn(s) label are compared, the icon art behind them changes
 
 # FGA doesnt have regions for the hud text, so these are placed relative to things FGA does find:
-# battle/enemy/turn text from the wave counter, stars from the attack button and the skill row
+# battle/enemy/turn text from the wave counter
 def master_x(snap: Snapshot, L: Locations) -> int:
     found = snap.find("battle_menu", L.master_offset_search_region)
     if found:
@@ -30,15 +30,6 @@ def hud_region(snap: Snapshot, L: Locations) -> Region:
 
 def turn_region(snap: Snapshot, L: Locations) -> Region:
     return Region(L.stage_count_region(master_x(snap, L)).x - 210, 150, 440, 80)
-
-def stars_region(snap: Snapshot, L: Locations) -> Region:
-    # only the "(15)" part of "0 (15)"
-    attack = snap.find("battle", L.battle_check_region)
-    if attack:
-        x = attack.region.x - 108
-    else:
-        x = L.battle_check_region.x - 100
-    return Region(x, L.skill(1, 1)[1] + 182, 160, 60)
 
 def only_digits(s: str) -> int | None:
     d = re.sub(r"\D", "", s)
@@ -97,7 +88,6 @@ class Hud:
     waves: int | None = None
     turn: int | None = None
     enemies_left: int | None = None
-    stars: int | None = None
     np: list[int | None] = field(default_factory=list)
     hp: list[int | None] = field(default_factory=list)
     enemies: list[Enemy] = field(default_factory=list)
@@ -131,14 +121,6 @@ def parse_np(t: str) -> int | None:
     m = re.search(r"(\d[\d.]*)\s*%", t)
     if m:
         return fix_np(only_digits(m.group(1)))
-    return None
-
-def parse_stars(t: str) -> int | None:
-    # crop only has "(N)", but ocr can drop a bracket or read 0 as O
-    t = t.replace("O", "0").replace("o", "0")
-    m = re.search(r"\(?\s*(\d{1,3})\s*\)?", t)
-    if m:
-        return int(m.group(1))
     return None
 
 def parse_hp(t: str) -> int | None:
@@ -280,11 +262,6 @@ def read_np(game: Game) -> list[int | None]:
         values.append(number(game.game_image(np_region(L, slot), scale="native"), "np"))
     return values
 
-def read_stars(game: Game) -> int | None:
-    L = Locations(game.ensure_area())
-    region = stars_region(Snapshot(game.game_image()), L)
-    return ocr.vote(game.game_image(region, scale="native"), parse_stars)
-
 def enemy_class(text: str) -> str | None:
     text = text.upper().replace(" ", "")
     for word, cls in CLASS_WORDS.items():
@@ -314,7 +291,6 @@ def read(game: Game, enemy_cache: dict | None = None) -> Hud:
     if m:
         h.enemies_left = int(m.group(1))
     h.turn = ocr.vote(img(turn_region(snap, L)), parse_turn)
-    h.stars = ocr.vote(img(stars_region(snap, L)), parse_stars)
     for slot in (1, 2, 3):
         h.np.append(number(img(np_region(L, slot)), "np"))
         h.hp.append(number(img(hp_region(L, slot)), "hp"))
