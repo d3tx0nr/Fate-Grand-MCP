@@ -185,6 +185,10 @@ NOT_LEARNED = ("Story progress not learned yet, so which places this account has
                "from the Terminal home list: call fgo_info(\"locations\") while on a Terminal screen and wait for the "
                "list of places before choosing where to go.")
 
+def depends_on_story(info: dict) -> bool:
+    """story chapters and lists that only exist from some point of the story can sit in different places"""
+    return info.get("story") is not None or info.get("requires") is not None or info.get("phase") is not None
+
 def learn_banners(location: str, entries: list[str]) -> list[str]:
     """banners of known places seen in the list at location. returns the places learned"""
     learned = []
@@ -194,6 +198,10 @@ def learn_banners(location: str, entries: list[str]) -> list[str]:
         if name is None or name in learned:
             continue
         info = all_places()[name]
+        if not depends_on_story(info) and info.get("parent") != location:
+            # fixed places dont move with the story: a news or summon banner that mentions one ("Interlude
+            # Campaign") is not that place
+            continue
         if info.get("story") is not None:
             # a chapter the game lists is reached
             reach_story(info["story"])

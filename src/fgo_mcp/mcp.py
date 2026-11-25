@@ -14,7 +14,8 @@ fgo_screen shows the current screen: what is visible there and the actions valid
 Act with fgo_act(screen_id, action, args), using that screen_id. Every action is checked first; a rejected one
 says what was wrong and how to fix it, and nothing was done in the game. After an action you get the next screen.
 On the Terminal, go(place) travels to a chapter or list in one call; only places unlocked by the story so far can
-be reached. fgo_info gives details on request (locations, kits, master, status, global); fgo_help explains the
+be reached. The support list is not a place on the Terminal: start(row) on a quest opens it (no AP is spent until
+start on the party screen after it), and back returns. fgo_info gives details on request (locations, kits, master, status, global); fgo_help explains the
 current screen. NEEDS CREATOR in a state means a human must help (e.g. not enough AP): tell your creator instead of retrying."""
 
 mcp = MCPServer("fgo-mcp", instructions=INSTRUCTIONS)

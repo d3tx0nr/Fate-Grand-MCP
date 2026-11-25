@@ -33,7 +33,9 @@ class Terminal(Screen):
              "home() goes there). go(place) travels to a chapter or list in one call, from wherever you are, e.g. "
              'go("Daily Quests") (fgo_info("locations") lists the places this account has unlocked). On a list or map: '
              "start(row) begins a listed quest, open(name) opens a listed entry or map place, scroll moves the list "
-             "or pans the map, back goes up one level, home returns to the Terminal top.")
+             "or pans the map, back goes up one level, home returns to the Terminal top. The support list (choosing "
+             "a support servant) is not a place: start(row) on any quest opens it; looking at it costs no AP (AP is "
+             "spent only by start on the party screen) and back returns to the quest list.")
 
     def __init__(self):
         self.scrolled = False
