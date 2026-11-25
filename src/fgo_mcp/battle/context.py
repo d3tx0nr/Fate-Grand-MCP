@@ -56,6 +56,7 @@ class BattleContext:
             emit("battle_end", result=result, turns=self.session.known_turn, waves=self.session.waves or self.session.wave)
         self.new_battle()
         self.session.support_from_list = None
+        self.session.support_levels_from_list = False
         self.session.known_turn = None
         self.session.party = []
         self.scanned_present = None
@@ -121,10 +122,17 @@ class BattleContext:
         session.party = party.scan(self.game, prefer=known)
         self.rescan_unidentified(known)
 
-        # the support name from the support list is cleaner than the battle ocr
+        # the support list already knew who the picked support is (by its class tab too), that beats the
+        # battle ocr: "Li iShuwen" without a class could be the Assassin or the Lancer
         picked = session.support_name or ""
         for f in session.party:
-            if f.support and f.atlas_id is None and picked:
+            if not f.support or f.atlas_id is not None:
+                continue
+            if session.support_from_list:
+                f.atlas_id = session.support_from_list
+                f.name = atlas.get(f.atlas_id)["name"]
+                f.candidates = [f.atlas_id]
+            elif picked:
                 candidates = atlas.match(picked, f.cls)
                 if len(candidates) == 1:
                     f.atlas_id = candidates[0]["id"]
@@ -142,7 +150,8 @@ class BattleContext:
                     note += "; could be: " + ", ".join(maybe)
                 notes.append(note)
                 continue
-            if reason == "support" and (f.atlas_id in self.supports_read or f.atlas_id == session.support_from_list):
+            from_list = f.atlas_id == session.support_from_list and getattr(session, "support_levels_from_list", False)
+            if reason == "support" and (f.atlas_id in self.supports_read or from_list):
                 continue
             if reason:
                 reads = party.refresh_skills(b, roster, f, fresh=fresh)

@@ -16,33 +16,51 @@ class SeenSoFar:
         self.key = None
         self.items: list[tuple[str, str]] = []   # (identity, text)
 
+    @staticmethod
+    def plain(ident: str) -> str:
+        return " ".join(re.findall(r"[a-z0-9]+", ident.lower()))
+
+    def same(self, a: str, b: str) -> bool:
+        """"owner|servant" identities (support list): the servant has to be the same, the owner name close
+        (ocr). plain text (Terminal banners and quests): close enough as a whole"""
+        if "|" in a and "|" in b:
+            owner_a, servant_a = a.split("|", 1)
+            owner_b, servant_b = b.split("|", 1)
+            if servant_a.isdigit() or servant_b.isdigit():
+                same_servant = servant_a == servant_b
+            else:
+                same_servant = difflib.SequenceMatcher(None, self.plain(servant_a), self.plain(servant_b)).ratio() >= self.SAME
+            owner_close = difflib.SequenceMatcher(None, self.plain(owner_a), self.plain(owner_b)).ratio() >= 0.75
+            return same_servant and owner_close
+        return difflib.SequenceMatcher(None, self.plain(a), self.plain(b)).ratio() >= self.SAME
+
     def update(self, eng: Engine, key, items: list[tuple[str, str]], screen_type: str) -> None:
         previous = eng.state.type if eng.state else None
         if key != self.key or previous != screen_type:
             self.key = key
             self.items = []
         for ident, text in items:
-            plain = " ".join(re.findall(r"[a-z0-9]+", ident.lower()))
-            if not plain:
+            if not self.plain(ident):
                 continue
             known = False
             for i in range(len(self.items)):
-                if difflib.SequenceMatcher(None, plain, self.items[i][0]).ratio() >= self.SAME:
+                if self.same(ident, self.items[i][0]):
                     known = True
                     if len(text) > len(self.items[i][1]):
                         # keep the fuller read ("Super" then "Super Orion")
-                        self.items[i] = (plain, text)
+                        self.items[i] = (ident, text)
                     break
             if not known:
-                self.items.append((plain, text))
+                self.items.append((ident, text))
 
-    def text(self, label: str, shown_now: int, at_end: bool = False) -> str | None:
-        """only once scrolling found more than is on screen now"""
+    def text(self, label: str, shown_now: int, at_end: bool = False, numbered: bool = False) -> str | None:
+        """only once scrolling found more than is on screen now. numbered = in list order, for picking by number"""
         if len(self.items) <= shown_now:
             return None
         lines = [f"Seen so far {label} ({len(self.items)}, no need to scroll back for these):"]
-        for _, t in self.items:
-            lines.append(f"- {t}")
+        for i in range(len(self.items)):
+            mark = f"#{i + 1}" if numbered else "-"
+            lines.append(f"{mark} {self.items[i][1]}")
         if at_end:
             lines.append("(end of the list reached: this is everything)")
         else:

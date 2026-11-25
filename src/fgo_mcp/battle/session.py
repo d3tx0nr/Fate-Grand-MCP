@@ -40,6 +40,7 @@ class BattleSession:
         self.known_turn = None
         self.support_rows = []
         self.support_from_list = None
+        self.support_levels_from_list = False   # the list gave all skill levels of the picked support
         self.master_skills = []
         self.quest_rows = []
         self.nav_entries = []

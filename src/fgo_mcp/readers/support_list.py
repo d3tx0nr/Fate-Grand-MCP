@@ -23,6 +23,7 @@ CLASS_TABS = {"all": 184, "saber": 320, "archer": 454, "lancer": 568, "rider": 7
 CLASS_TABS_SUGGESTED = {"all": 297, "saber": 417, "archer": 543, "lancer": 666, "rider": 788, "caster": 908,
                         "assassin": 1028, "berserker": 1150, "extra": 1273, "mix": 1395}
 SERVANT_LABEL_RE = re.compile(r"s[eoa]rv[ae]nt")
+LABEL_MIN_DY = 120   # below the title line of the entry
 
 @dataclass
 class SupportEntry:
@@ -35,6 +36,13 @@ class SupportEntry:
     np_level: int | None = None
     skills: tuple[int | None, int | None, int | None] = (None, None, None)
     complete: bool = True
+    owner: str = ""                 # the player who lends it ("guest" for a story guest)
+    owner_level: int | None = None
+
+    @property
+    def identity(self) -> str:
+        """who lends which servant: the same servant from two players are two entries"""
+        return f"{self.owner}|{self.atlas_id or self.name}"
 
     @property
     def tap(self) -> tuple[int, int]:
@@ -60,7 +68,15 @@ class SupportEntry:
         cut = ""
         if not self.complete:
             cut = " [partly off screen: scroll to pick]"
-        return f"R{self.row} {self.name or '?'}{cls_text}, {self.kind or '-'}: NP Lv{self.np_level or '?'}; skills {'/'.join(skill_parts)} | {role}{cut}"
+        by = ""
+        if self.owner == "guest":
+            by = " (story guest)"
+        elif self.owner:
+            by = f" by {self.owner}"
+            if self.owner_level:
+                by += f" Lv{self.owner_level}"
+        return (f"R{self.row} {self.name or '?'}{cls_text}{by}, {self.kind or '-'}: NP Lv{self.np_level or '?'}; "
+                f"skills {'/'.join(skill_parts)} | {role}{cut}")
 
 def plain(t: str) -> str:
     result = ""
@@ -179,11 +195,25 @@ def read(game, s: Snapshot, L: Locations) -> list[SupportEntry]:
             boxes.append((x/k + text_area.x, y/k + text_area.y, t.strip()))
         label = None
         for bx in boxes:
-            if SERVANT_LABEL_RE.fullmatch(plain(bx[2])):
+            # the "Servant" label is ~200px into the entry; the title line ("Guest Servant", split by ocr
+            # into "Guest" + "Servant") is at ~60 and must not be taken for it
+            if SERVANT_LABEL_RE.fullmatch(plain(bx[2])) and bx[1] - b.y > LABEL_MIN_DY:
                 label = bx
                 break
         if label:
             lx, ly, _ = label
+            # the owner's name is the title line above the servant line, the owner's level is next to it
+            # (measured: name at x+380..+400, Lv at x+1376, "Last Login" from x+1577 on)
+            title = [bx for bx in boxes if ly - bx[1] > 80 and bx[0] < b.x + 1500]
+            title.sort(key=lambda bx: bx[0])
+            for bx in title:
+                m = re.search(r"L[vx]\.?\s*(\d{1,3})", bx[2])
+                if m and bx[0] > b.x + 1000:
+                    e.owner_level = int(m.group(1))
+                elif bx[0] < b.x + 1000 and not e.owner:
+                    e.owner = bx[2].strip()
+            if re.search(r"guest", e.owner, re.IGNORECASE):
+                e.owner = "guest"
             same_line = []
             np_line_boxes = []
             for bx in boxes:
