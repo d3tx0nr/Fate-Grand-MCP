@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 
 from fgo_mcp.battle.party import cancel_click
-from fgo_mcp.data import atlas
+from fgo_mcp.data import atlas, places
 from fgo_mcp.data import kits
 from fgo_mcp.data.store import Roster
 from fgo_mcp.device.geometry import Region
@@ -84,7 +84,6 @@ def read_status(battle, slot: int) -> list[StatusEntry]:
     return parse_status(ocr.boxes(img), set(atlas.buff_index()))
 
 MASTER_DIALOG = Region(300, 420, 1960, 300)
-MASTER_TITLE_RE = re.compile(r"(.+?)\s*L[vy][.,]?\s*(\d+)", re.IGNORECASE)
 
 @dataclass
 class MasterSkill:
@@ -145,6 +144,27 @@ def dialog_lines(boxes) -> list[str]:
         texts.append(" ".join(t for _, t in parts))
     return texts
 
+def master_title(lines: list[str]) -> tuple[str, int | None]:
+    """(skill name, level) from the confirm dialog text. the name is the known mystic code skill name found in
+    the text, not just the first line: the enemy TARGET marker behind the dialog can be read first, and "Lv."
+    can be lost ("Sunset Classroom 8")"""
+    # ocr glues the level onto the name sometimes: "First AidLv.1"
+    text = re.sub(r"(?<=[a-z])(L[vy][.,]?\s*\d)", r" \1", " ".join(lines))
+    best = ""
+    for mc in atlas.mystic_codes():
+        for sk in mc["skills"]:
+            name = sk["name"]
+            if len(name) > len(best) and places.contains(text, name):
+                best = name
+    if not best:
+        return "", None
+    level = None
+    words = places.words(best)
+    m = re.search(re.escape(words[-1]) + r"\W*(?:l[vy][.,]?\s*)?(\d{1,2})\b", " ".join(places.words(text)))
+    if m and 1 <= int(m.group(1)) <= 10:
+        level = int(m.group(1))
+    return best, level
+
 def read_master_skills(battle, roster: Roster) -> list[MasterSkill]:
     """the menu stays open after cancel, so open it once, read all 3 and close it"""
     from fgo_mcp.battle.actions import BattleError
@@ -172,17 +192,8 @@ def read_master_skills(battle, roster: Roster) -> list[MasterSkill]:
             ms.note = "no dialog (on cooldown or unavailable)"
             skills.append(ms)
             continue
-        # only the title line "First Aid Lv.1": the name finds the mystic code, the rest comes from atlas
-        for t in dialog_lines(ocr.boxes(battle.g.game_image(MASTER_DIALOG, scale="native"))):
-            if re.search(r"confirm skill|^cancel", t, re.IGNORECASE):
-                continue
-            m = MASTER_TITLE_RE.search(t)
-            if m:
-                ms.name = m.group(1).strip()
-                ms.level = int(m.group(2)) if 1 <= int(m.group(2)) <= 10 else None
-            else:
-                ms.name = t.strip()
-            break
+        # only the title "First Aid Lv.1": the name finds the mystic code, the rest comes from atlas
+        ms.name, ms.level = master_title(dialog_lines(ocr.boxes(battle.g.game_image(MASTER_DIALOG, scale="native"))))
         battle.click(cancel_click(L), wait=0.8)
         if battle.snap().exists("skill_use", L.skill_use_region):
             close_menu()

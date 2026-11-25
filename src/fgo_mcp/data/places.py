@@ -324,7 +324,9 @@ def recognise(title: str, kind: str, entries: list[str] = ()) -> str | None:
     for p in candidates:
         counts[p] = 0
         for info in all_places().values():
-            if info.get("parent") == p and contains(listed, info["banner"]):
+            # a part 1 chapter is in Main Record 1 only after the phase switch, its data parent is the Terminal
+            parents = {info.get("parent"), (info.get("phase") or {}).get("parent")}
+            if p in parents and contains(listed, info["banner"]):
                 counts[p] += 1
     best = max(counts.values())
     winners = [p for p, n in counts.items() if n == best]
