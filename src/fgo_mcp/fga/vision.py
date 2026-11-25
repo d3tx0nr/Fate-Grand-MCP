@@ -48,11 +48,6 @@ class Snapshot:
         record.note_check("black", r, result)
         return result
 
-    def is_white(self, r: Region) -> bool:
-        """FGA DroidCvPattern.isWhite: darkest pixel >= 200."""
-        c = self.crop(r)
-        return c.size > 0 and int(c.min()) >= 200
-
     def best(self, name: str, r: Region) -> Match | None:
         """Best match of a template inside a script-space region (regardless of threshold)."""
         tpl = template(name)
@@ -98,17 +93,6 @@ class Snapshot:
         else:
             record.note_template(name, r, None, 0.0, similarity)
         return out
-
-    def patch(self, r: Region) -> np.ndarray:
-        """A copy of a region, to compare later (FGA getPattern)."""
-        return self.crop(r).copy()
-
-    def has_patch(self, patch: np.ndarray, r: Region, similarity: float = MIN_SIMILARITY) -> bool:
-        """Whether a saved patch is in the region again (the region is widened by 4 px for small shifts)."""
-        hay = self.crop(Region(r.x - 8, r.y - 8, r.w + 16, r.h + 16))
-        score = cv2.minMaxLoc(cv2.matchTemplate(hay, patch, cv2.TM_CCOEFF_NORMED))[1]
-        record.note_template("saved patch", r, None, score, similarity)
-        return score >= similarity
 
     def score(self, name: str, r: Region) -> float:
         m = self.best(name, r)

@@ -7,10 +7,6 @@ from fgo_mcp.screens.base import Screen, unknown_keys
 # found with our own templates (assets/custom/nav_*.png), FGA has nothing for these.
 # positions measured on 16:9 and moved with the wide margin (nav_left / nav_right)
 
-def top_left(a) -> Region:
-    # news / close / terminal button
-    return Region(a.nav_left(0), 0, 420, 170)
-
 def back_click(a) -> tuple[int, int]:
     return a.nav_left(190), 85
 

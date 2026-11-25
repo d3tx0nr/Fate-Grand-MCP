@@ -63,16 +63,6 @@ class Locations:
         x, y = self.skill(slot, 3)
         return Region(x + 35, y + 67, 120, 120)
 
-    def skill_image_region(self, slot: int, skill: int) -> Region:
-        """FGA imageRegion: a patch of the skill icon. Saved while the skill is ready; the skill is ready again
-        when the patch matches (on cooldown the icon is greyed and shows a number)."""
-        x, y = self.skill(slot, skill)
-        return Region(x + 22, y + 28, 30, 30)
-
-    def servant_change_check_region(self, slot: int) -> Region:
-        """FGA servantChangeCheckRegion: a patch of the servant that changes when another servant comes in."""
-        return Region(self.skill(slot, 2)[0] + 20, 865, 40, 80)
-
     def field_support_region(self, slot: int) -> Region:
         """FGA servantChangeSupportCheckRegion: where the field's +SUPPORT tag is (servant_check_support)."""
         return Region(self.skill(slot, 2)[0] + 25, 710, 300, 170)

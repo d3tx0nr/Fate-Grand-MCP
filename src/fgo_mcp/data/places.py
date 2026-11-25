@@ -330,12 +330,6 @@ def parent_of(place: str) -> str | None:
         return reachable[place].get("parent")
     return all_places().get(place, {}).get("parent")
 
-def shown_in(place: str) -> list[str]:
-    parent = parent_of(place)
-    if parent:
-        return [parent]
-    return []
-
 def neighbours(place: str | None, skip: set = frozenset()) -> list[tuple[str, str]]:
     """(move, place it goes to). from an unknown place only home works"""
     reachable = available()
