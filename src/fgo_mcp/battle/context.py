@@ -35,6 +35,7 @@ class BattleContext:
         self.hand = None
         self.enemy_cache = {}
         self.started = False
+        self.recheck_all = False      # a card had no known face, so someone on the field may be new
         self.restore()
 
     @property
@@ -62,6 +63,7 @@ class BattleContext:
         self.scanned_present = None
         self.pending_np = None
         self.enemy_cache = {}
+        self.recheck_all = False
         STATE_PATH.unlink(missing_ok=True)
 
     def apply_pending_np(self) -> list[str]:
@@ -154,12 +156,7 @@ class BattleContext:
             if reason == "support" and (f.atlas_id in self.supports_read or from_list):
                 continue
             if reason:
-                reads = party.refresh_skills(b, roster, f, fresh=fresh)
-                emit("skill_read", slot=f.slot, atlas_id=f.atlas_id, reason=reason, reads=[vars(r) for r in reads])
-                if f.support:
-                    self.supports_read.add(f.atlas_id)
-                levels = [r.level for r in reads]
-                notes.append(f"{f.label()}: read skill levels ({reason}) -> {levels}")
+                notes.append(self.read_skill_levels(f, reason, fresh))
 
         if not session.master_skills:
             session.master_skills = details.read_master_skills(b, roster)
@@ -175,6 +172,63 @@ class BattleContext:
             else:
                 session.faces[ally_key(f)] = details.capture_face(self.battle, f.slot)
         self.save()
+        return notes
+
+    def read_skill_levels(self, f, reason: str, fresh: bool) -> str:
+        reads = party.refresh_skills(self.battle, self.roster, f, fresh=fresh)
+        emit("skill_read", slot=f.slot, atlas_id=f.atlas_id, reason=reason, reads=[vars(r) for r in reads])
+        if f.support:
+            self.supports_read.add(f.atlas_id)
+        levels = [r.level for r in reads]
+        return f"{f.label()}: read skill levels ({reason}) -> {levels}"
+
+    def slots_to_check(self, prev_hp, hp, present) -> list[int]:
+        """slots where someone else may be standing now. when a servant dies the next sub member takes the
+        same slot, so the slots on the field dont change. signs of it: the hp went up (a heal looks the same,
+        the name strip tells them apart), a card nobodys face matched, or the slot was never identified"""
+        slots = []
+        for i in range(3):
+            if not present[i] or i >= len(self.party):
+                continue
+            slot = i + 1
+            if self.recheck_all or self.party[i].atlas_id is None:
+                slots.append(slot)
+                continue
+            if prev_hp is None or prev_hp[i] is None or hp[i] is None:
+                continue
+            if hp[i] > prev_hp[i]:
+                slots.append(slot)
+        self.recheck_all = False
+        return slots
+
+    def check_slots(self, slots: list[int]) -> list[str]:
+        """reads the name strip of these slots again. someone new is identified, saved in the roster (seen for
+        the first time too), gets their skill levels read and their face captured like at the battle start"""
+        if not slots:
+            return []
+        known = set()
+        for s in self.roster.all("mine"):
+            known.add(s.atlas_id)
+        again = party.scan(self.game, prefer=known)
+        notes = []
+        for f in again:
+            if f.slot not in slots:
+                continue
+            old = self.session.party[f.slot - 1]
+            if f.atlas_id is None or f.atlas_id == old.atlas_id:
+                # same servant (just healed), or the strip couldnt be read this time (a voice line caption)
+                continue
+            self.session.party[f.slot - 1] = f
+            emit("party_change", slot=f.slot, before=old.name, after=f.name, atlas_id=f.atlas_id, raw=f.raw)
+            notes.append(f"S{f.slot}: {old.name or 'unknown'} is no longer on the field, {f.name} took the slot")
+            for g, reason in party.register(self.roster, [f]):
+                # it just came in, nothing of it can be on cooldown yet
+                if reason and not (reason == "support" and g.atlas_id in self.supports_read):
+                    notes.append(self.read_skill_levels(g, reason, fresh=True))
+            if ally_key(f) not in self.session.faces:
+                self.session.faces[ally_key(f)] = self.face(f)
+        if notes:
+            self.save()
         return notes
 
     def read_readiness(self) -> None:
@@ -219,6 +273,9 @@ class BattleContext:
             if f.support and support_slot is None:
                 support_slot = f.slot
         hand = self.battle.read_cards(faces=faces, support_slot=support_slot)
+        for c in hand:
+            if c.owner is None and not c.stunned:
+                self.recheck_all = True
         emit("hand", cards=[vars(c) for c in hand],
              frame=save_frame(self.game.game_image(scale="native"), "battle_cards", "hand"))
         return hand

@@ -51,6 +51,9 @@ class BattleCommand(Screen):
             h.waves = s.waves
         s.waves = h.waves or s.waves
         s.known_turn = h.turn or s.known_turn
+        prev_hp = None
+        if s.last_hud is not None:
+            prev_hp = s.last_hud.hp
         s.last_hud = h
         s.last_np = h.np
         s.on_wave(h.wave)
@@ -58,6 +61,8 @@ class BattleCommand(Screen):
         if not ctx.party or present != ctx.scanned_present:
             notes = ctx.scan_party()
             ctx.scanned_present = present
+        else:
+            notes = ctx.check_slots(ctx.slots_to_check(prev_hp, h.hp, present))
         ctx.read_readiness()
         turn = h.turn or 0
         emit("hud", turn=h.turn, wave=h.wave, waves=h.waves, enemies_left=h.enemies_left, np=h.np, hp=h.hp,
