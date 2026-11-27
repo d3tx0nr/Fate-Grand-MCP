@@ -32,5 +32,7 @@ Known misses:
 - enemy class labels are noisy OCR
 - "Main Interlude" list titles arent read, "Rank Up Quest" lost its "Up" once
 
-The recorded frames themselves (`data/`) are not in the repo. To run it on your own runs: play with
-`fgo-mcp engine --record`, then `uv run python full_stats.py`.
+The recorded frames themselves (`data/`) are not in the repo. This table is the output of
+`uv run python full_stats.py --skip run-20261127-203334` (that run was thrown away). To run it on your own runs:
+play with `fgo-mcp engine --record`, then `uv run python full_stats.py`. `--pool` prints the table again from an
+existing `full_stats.json` without reading the frames.
