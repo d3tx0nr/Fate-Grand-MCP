@@ -290,6 +290,14 @@ class BattleCommand(Screen):
                 log.append(self.use_master(eng, as_int(m["skill"]), as_int(m.get("target"))))
             for sk in args.get("skills") or []:
                 log.append(self.use_skill(eng, as_int(sk["slot"]), as_int(sk["skill"]), as_int(sk.get("target"))))
+            if args.get("skills") or args.get("master_skills"):
+                # skills can charge the np gauge, so read it again before deciding which nps can fire
+                before = ctx.session.last_np or [None, None, None]
+                now = hud.read_np(eng.game)
+                for i in range(len(now)):
+                    if now[i] is None and i < len(before):
+                        now[i] = before[i]
+                ctx.session.last_np = now
             ctx.battle.open_cards()
             cards = parse_cards(args.get("cards", "auto"), [])
             if cards == "choose":

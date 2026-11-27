@@ -80,16 +80,29 @@ class BattleCards(Screen):
             ctx.session.last_np = [g.get(1), g.get(2), g.get(3)]
             hand = ctx.read_hand()
             ctx.hand = hand
-        not_ready = np_not_ready(nps, gauges_by_slot(ctx.session.last_np))
-        if not_ready:
-            # skills were already used, so stop here instead of guessing
-            return "NOT PLAYED: " + "; ".join(not_ready) + ". The card screen is open: use play."
+        # the nps are chosen before the skills of the turn are used, so they are fired only if they are ready
+        # now. one that isnt ready doesnt stop the others, its card is taken by a face card instead
+        gauges = gauges_by_slot(ctx.session.last_np)
+        fire = []
+        not_fired = []
+        for n in nps:
+            problem = np_not_ready([n], gauges)
+            if problem:
+                not_fired += problem
+            else:
+                fire.append(n)
         if cards == "auto":
-            faces = Battle.auto_faces(hand, 3 - len(nps))
+            faces = Battle.auto_faces(hand, 3 - len(fire))
         else:
             faces = list(cards)
-        ctx.battle.play_cards(nps, faces)
-        ctx.pending_np = (nps, current_turn(eng), living_enemies(eng))
+            if len(fire) + len(faces) < 3:
+                rest = []
+                for c in hand:
+                    if c.card not in faces:
+                        rest.append(c)
+                faces += Battle.auto_faces(rest, 3 - len(fire) - len(faces))
+        ctx.battle.play_cards(fire, faces)
+        ctx.pending_np = (fire, current_turn(eng), living_enemies(eng))
         ctx.hand = None
         by_number = {}
         for c in hand:
@@ -103,7 +116,17 @@ class BattleCards(Screen):
             if c.affinity != "normal":
                 part += " " + c.affinity
             shown.append(part)
-        return f"played nps={nps} faces: {', '.join(shown)}"
+        result = f"played nps={fire} faces: {', '.join(shown)}"
+        if not_fired:
+            ready_left = []
+            for slot, value in gauges.items():
+                if value is not None and value >= 100 and slot not in fire:
+                    ready_left.append(f"NP{slot} ({value}%)")
+            result += "\nNOT FIRED: " + "; ".join(not_fired) + ". A face card was played in its place."
+            result += "\nPut in nps only NPs shown as READY, or ones the skills of the same turn charge to 100%."
+            if ready_left:
+                result += " Ready but not listed this turn: " + ", ".join(ready_left) + "."
+        return result
 
 class BattleBusy(Screen):
     type = "battle_busy"
